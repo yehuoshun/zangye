@@ -13,3 +13,6 @@ zangye.exe
 # 临时文件
 *.log
 tmp/
+# 前端构建产物
+frontend/dist/
+frontend/node_modules/
