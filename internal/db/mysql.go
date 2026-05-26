@@ -26,7 +26,7 @@ func DefaultConfig() Config {
 		Password: "zangye123",
 		Host:     "127.0.0.1",
 		Port:     3306,
-		DBName:   "zangye",
+		DBName:   "zang_ye",
 	}
 }
 

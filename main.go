@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"embed"
 	"io"
 	"io/fs"
 	"log"
@@ -10,8 +11,6 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-
-	"embed"
 
 	"github.com/yehuoshun/zangye/internal/db"
 )
@@ -28,7 +27,6 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	// API
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
 		if err := database.Ping(); err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
@@ -39,7 +37,6 @@ func main() {
 		w.Write([]byte(`{"status":"ok"}`))
 	})
 
-	// 前端 SPA
 	frontendSub, err := fs.Sub(frontendFS, "frontend/dist")
 	if err != nil {
 		log.Printf("前端文件未嵌入，仅 API 可用: %v", err)
@@ -74,7 +71,6 @@ func main() {
 	}
 }
 
-// spaHandler SPA 回退：所有非 API 请求 → index.html
 type spaHandler struct {
 	staticFS fs.FS
 }
