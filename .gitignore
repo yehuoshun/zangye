@@ -1,5 +1,5 @@
-zangye.exe
-frontend/node_modules/
-.DS_Store
 zangye
 zangye.exe
+frontend/node_modules/
+frontend/dist/
+.DS_Store
