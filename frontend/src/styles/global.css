@@ -1,7 +1,30 @@
+/**
+ * global.css — 藏叶全局样式
+ *
+ * 定义应用的 CSS Reset 和基础样式：
+ *   - 统一盒模型为 border-box
+ *   - 移除默认外边距和内边距
+ *   - 设置暗色主题基础色
+ *
+ * 此文件在 main.ts 中全局导入，对所有组件生效。
+ * 组件级别的样式使用 scoped CSS 避免冲突。
+ */
+
+/* ===================================================
+   CSS Reset
+   =================================================== */
+
+/* 统一盒模型：padding 和 border 包含在元素宽高内 */
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* ===================================================
+   基础样式
+   =================================================== */
+
+/* 页面主体：暗色主题，深蓝背景 + 浅色文字 */
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #1a1a2e;
-  color: #e0e0e0;
-  min-height: 100vh;
+  background: #1a1a2e;      /* 深蓝背景色 */
+  color: #e0e0e0;           /* 浅灰文字色 */
+  min-height: 100vh;        /* 最小高度占满视口 */
 }
