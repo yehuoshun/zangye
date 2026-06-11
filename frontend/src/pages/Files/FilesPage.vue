@@ -144,7 +144,7 @@
           <div class="form-row">
             <div class="form-group">
               <label>文件大小（字节）</label>
-              <input v-model.number="fileForm.file_size" type="number" class="form-input" placeholder="0" />
+              <input v-model.number="fileForm.file_size" class="form-input" placeholder="0" />
             </div>
             <div class="form-group">
               <label>MIME 类型</label>
