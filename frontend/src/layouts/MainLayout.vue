@@ -27,7 +27,7 @@
       <nav class="nav">
         <!-- 仪表盘导航项 -->
         <!-- router-link-active 类名用于高亮当前激活的导航项 -->
-        <router-link to="/" class="nav-item">
+        <router-link to="/" class="nav-item" exact-active-class="router-link-active">
           <span class="nav-icon">📊</span>
           <span class="nav-label">仪表盘</span>
         </router-link>
