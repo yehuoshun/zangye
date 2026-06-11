@@ -1,12 +1,11 @@
 <!--
   MainLayout.vue — 藏叶主布局组件
 
-  提供应用的整体布局结构，支持两种模式：
+  支持两种布局模式：
     - sidebar（侧边栏）：左侧固定 220px 导航 + 右侧内容区
     - topbar（顶部导航）：顶部 56px 导航栏 + 下方内容区
 
-  布局模式从 API 读取，fallback 到 localStorage，默认 sidebar。
-  导航菜单使用 router-link 实现 SPA 导航。
+  布局状态从 App.vue inject，修改后即时响应无需刷新。
 -->
 
 <template>
@@ -72,27 +71,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { fetchSettings } from '@/features/settings/api'
+import { ref, inject, onMounted, type Ref } from 'vue'
 
-// 布局模式：sidebar / topbar
-const layout = ref(localStorage.getItem('zangye-layout') || 'sidebar')
+// 从 App.vue 注入全局布局状态
+const layout = inject<Ref<string>>('layout', ref('sidebar'))
+
 // 后端连接状态
 const online = ref(false)
 
-// 组件挂载后加载设置并检测健康状态
 onMounted(async () => {
-  // 加载主题和布局设置
-  try {
-    const settings = await fetchSettings()
-    document.documentElement.setAttribute('data-theme', settings.theme || 'dark')
-    if (settings.layout) {
-      layout.value = settings.layout
-      localStorage.setItem('zangye-layout', settings.layout)
-    }
-  } catch { /* 使用默认值 */ }
-
-  // 检测后端健康状态
   try {
     const res = await fetch('/api/health')
     online.value = res.ok

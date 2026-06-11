@@ -1,12 +1,8 @@
 <!--
   SettingsPage.vue — 系统设置页面
 
-  支持修改：
-    - 主题（深色/浅色）
-    - 布局模式
-    - 数据库版本号（只读）
-
-  切换选项自动保存，无需手动点击。
+  支持修改主题（深色/浅色）和布局模式（侧边栏/顶部导航）。
+  修改后立即全局生效，无需刷新页面。
 -->
 
 <template>
@@ -45,11 +41,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, inject } from 'vue'
 import { fetchSettings, updateSettings } from '@/features/settings/api'
 
 const form = reactive({ theme: 'dark', layout: 'sidebar' })
 const status = ref('')
+
+// 从 App.vue 注入全局状态修改方法
+const setTheme = inject<(t: string) => void>('setTheme', () => {})
+const setLayout = inject<(l: string) => void>('setLayout', () => {})
 
 onMounted(async () => {
   try {
@@ -62,10 +62,9 @@ onMounted(async () => {
 })
 
 async function autoSave() {
-  // 立即应用主题
-  document.documentElement.setAttribute('data-theme', form.theme)
-  // 缓存布局模式，刷新页面时先读缓存
-  localStorage.setItem('zangye-layout', form.layout)
+  // 立即全局生效
+  setTheme(form.theme)
+  setLayout(form.layout)
   try {
     await updateSettings({ theme: form.theme, layout: form.layout })
     status.value = '✅ 已保存'
@@ -104,7 +103,7 @@ async function autoSave() {
 .setting-name { font-size: 15px; font-weight: 500; }
 .setting-desc { font-size: 12px; color: var(--text-muted); }
 
-.setting-input, .setting-value {
+.setting-input {
   background: var(--bg-tertiary);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
@@ -115,7 +114,6 @@ async function autoSave() {
   min-width: 140px;
 }
 .setting-input:focus { border-color: var(--accent); }
-.setting-value { color: var(--text-muted); }
 
 .setting-status {
   font-size: 13px;
