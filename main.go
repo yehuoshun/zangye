@@ -66,6 +66,7 @@ func main() {
 	mux.HandleFunc("PUT /api/settings", settingsH.Update)
 	// 文件管理
 	mux.HandleFunc("GET /api/files", filesH.List)
+	mux.HandleFunc("POST /api/files/preview", filesH.Preview)
 	mux.HandleFunc("GET /api/files/{id}", filesH.Get)
 	mux.HandleFunc("POST /api/files", filesH.Create)
 	mux.HandleFunc("PUT /api/files/{id}", filesH.Update)

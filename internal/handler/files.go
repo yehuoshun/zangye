@@ -93,6 +93,51 @@ func (h *FilesHandler) Get(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, f)
 }
 
+// FilePreviewResponse 是文件预览的响应结构体。
+type FilePreviewResponse struct {
+	Path     string `json:"path"`
+	FileName string `json:"file_name"`
+	FileSize int64  `json:"file_size"`
+	MimeType string `json:"mime_type"`
+	Exists   bool   `json:"exists"`
+}
+
+// Preview POST /api/files/preview — 预览文件信息（不写入数据库）
+func (h *FilesHandler) Preview(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Path string `json:"path"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "请求体格式无效")
+		return
+	}
+	if req.Path == "" {
+		writeError(w, http.StatusBadRequest, "文件路径不能为空")
+		return
+	}
+
+	info, err := os.Stat(req.Path)
+	if err != nil {
+		writeJSON(w, http.StatusOK, FilePreviewResponse{
+			Path:     req.Path,
+			FileName: filepath.Base(req.Path),
+			Exists:   false,
+		})
+		return
+	}
+
+	ext := strings.ToLower(filepath.Ext(req.Path))
+	mimeType := mime.TypeByExtension(ext)
+
+	writeJSON(w, http.StatusOK, FilePreviewResponse{
+		Path:     req.Path,
+		FileName: filepath.Base(req.Path),
+		FileSize: info.Size(),
+		MimeType: mimeType,
+		Exists:   true,
+	})
+}
+
 // Create POST /api/files — 创建文件，自动识别文件大小和 MIME 类型
 func (h *FilesHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req FileCreateRequest

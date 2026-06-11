@@ -63,8 +63,7 @@
         <div class="modal-body">
           <div class="form-group">
             <label>文件路径 <span class="required">*</span></label>
-            <input v-model="form.path" class="form-input" placeholder="/data/movies/example.mp4" />
-            <span class="form-hint">输入服务器上的文件路径，大小和类型自动识别</span>
+            <input v-model="form.path" class="form-input" placeholder="E:\Game\YGO\MDPro3\Expansions\1.cdb" @blur="onPathBlur" />
           </div>
           <div class="form-group">
             <label>显示名称</label>
@@ -73,6 +72,30 @@
           <div class="form-group">
             <label>所属集合 ID <span class="required">*</span></label>
             <input v-model="form.collection_id" class="form-input" placeholder="集合 UUID" />
+          </div>
+          <!-- 文件预览 -->
+          <div class="file-preview" v-if="preview">
+            <div class="preview-title">文件预览</div>
+            <div class="preview-grid">
+              <div class="preview-item">
+                <span class="preview-label">文件名</span>
+                <span class="preview-value">{{ preview.file_name }}</span>
+              </div>
+              <div class="preview-item">
+                <span class="preview-label">大小</span>
+                <span class="preview-value">{{ preview.exists ? formatFileSize(preview.file_size) : '—' }}</span>
+              </div>
+              <div class="preview-item">
+                <span class="preview-label">类型</span>
+                <span class="preview-value">{{ preview.mime_type || '未知' }}</span>
+              </div>
+              <div class="preview-item">
+                <span class="preview-label">状态</span>
+                <span class="preview-value" :class="preview.exists ? 'text-success' : 'text-danger'">
+                  {{ preview.exists ? '✅ 文件存在' : '❌ 文件不存在' }}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
         <div class="modal-footer">
@@ -104,8 +127,8 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import type { FileItem, FileCreateRequest, FileUpdateRequest } from '@/features/files/types'
-import { fetchFiles, createFile, updateFile, deleteFile } from '@/features/files/api'
+import type { FileItem, FileCreateRequest, FileUpdateRequest, FilePreview } from '@/features/files/types'
+import { fetchFiles, createFile, updateFile, deleteFile, previewFile } from '@/features/files/api'
 
 // 文件列表
 const files = ref<FileItem[]>([])
@@ -126,6 +149,8 @@ const form = reactive<FileCreateRequest>({
 // 删除确认
 const showDeleteConfirm = ref(false)
 const deleteTarget = ref<FileItem | null>(null)
+// 文件预览
+const preview = ref<FilePreview | null>(null)
 
 // 加载文件列表
 onMounted(loadFiles)
@@ -145,6 +170,7 @@ function openCreate() {
   form.collection_id = ''
   form.path = ''
   form.display_name = null
+  preview.value = null
   showModal.value = true
 }
 
@@ -155,7 +181,26 @@ function openEdit(f: FileItem) {
   form.collection_id = f.collection_id
   form.path = f.path
   form.display_name = f.display_name
+  // 编辑模式下不展示预览，如果要改路径再触发
+  preview.value = null
   showModal.value = true
+}
+
+// 路径失焦时调用预览 API
+async function onPathBlur() {
+  if (!form.path) {
+    preview.value = null
+    return
+  }
+  try {
+    preview.value = await previewFile(form.path)
+    // 如果没填显示名称，自动用文件名
+    if (!form.display_name && preview.value.exists) {
+      form.display_name = preview.value.file_name
+    }
+  } catch {
+    preview.value = null
+  }
 }
 
 // 关闭弹窗
@@ -412,6 +457,45 @@ function formatDate(ts: string): string {
   font-size: 12px;
   color: var(--text-muted);
 }
+
+/* 文件预览 */
+.file-preview {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 4px;
+}
+.preview-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.preview-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.preview-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.preview-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+.preview-value {
+  font-size: 14px;
+  font-weight: 500;
+  word-break: break-all;
+}
+.text-success { color: #4ade80; }
+.text-danger { color: #ef4444; }
 
 .text-muted { color: var(--text-muted); }
 </style>

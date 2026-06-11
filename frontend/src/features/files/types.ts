@@ -18,6 +18,17 @@ export interface FileItem {
 }
 
 /**
+ * 文件预览响应
+ */
+export interface FilePreview {
+  path: string
+  file_name: string
+  file_size: number
+  mime_type: string
+  exists: boolean
+}
+
+/**
  * 创建文件请求体
  */
 export interface FileCreateRequest {
