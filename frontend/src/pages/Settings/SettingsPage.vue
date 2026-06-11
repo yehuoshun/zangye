@@ -64,6 +64,8 @@ onMounted(async () => {
 async function autoSave() {
   // 立即应用主题
   document.documentElement.setAttribute('data-theme', form.theme)
+  // 缓存布局模式，刷新页面时先读缓存
+  localStorage.setItem('zangye-layout', form.layout)
   try {
     await updateSettings({ theme: form.theme, layout: form.layout })
     status.value = '✅ 已保存'
