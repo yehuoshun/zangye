@@ -134,12 +134,13 @@
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label>文件路径 <span class="required">*</span></label>
-            <input v-model="fileForm.path" class="form-input" placeholder="E:\Game\YGO\MDPro3\Expansions\1.cdb" @input="autoFillDisplayName" />
+            <label>实际路径 <span class="required">*</span></label>
+            <textarea v-model="fileForm.real_paths" class="form-input" rows="3" placeholder="E:\Game\YGO\MDPro3\Expansions\1.cdb, E:\Game\YGO\MDPro3\Expansions\2.cdb" @input="onRealPathsInput" />
+            <span class="form-hint">多个路径用逗号隔开，中英文逗号均可</span>
           </div>
           <div class="form-group">
             <label>显示名称</label>
-            <input v-model="fileForm.display_name" class="form-input" placeholder="可选" />
+            <input v-model="fileForm.display_name" class="form-input" placeholder="从路径自动提取" />
           </div>
           <div class="form-row">
             <div class="form-group">
@@ -154,7 +155,7 @@
         </div>
         <div class="modal-footer">
           <button class="btn" @click="closeFileModal">取消</button>
-          <button class="btn btn-primary" @click="saveFile" :disabled="!fileForm.path">
+          <button class="btn btn-primary" @click="saveFile" :disabled="!fileForm.real_paths">
             保存
           </button>
         </div>
@@ -270,9 +271,15 @@ const folderForm = reactive({ name: '' })
 // 文件弹窗
 const showFileModal = ref(false)
 const editingFile = ref<FileItem | null>(null)
-const fileForm = reactive<FileCreateRequest>({
+const fileForm = reactive<{
+  folder_id: string
+  real_paths: string
+  display_name: string | null
+  file_size: number
+  mime_type: string | null
+}>({
   folder_id: '',
-  path: '',
+  real_paths: '',
   display_name: null,
   file_size: 0,
   mime_type: null,
@@ -432,16 +439,38 @@ function confirmDeleteFolder(f: FolderItem) {
 function openCreateFile() {
   editingFile.value = null
   fileForm.folder_id = currentFolderId.value || ''
-  fileForm.path = ''
+  fileForm.real_paths = ''
   fileForm.display_name = null
   fileForm.file_size = 0
   fileForm.mime_type = null
   showFileModal.value = true
 }
 
-function autoFillDisplayName() {
-  fileForm.display_name = filenameFromPath(fileForm.path)
-  fileForm.mime_type = mimeFromPath(fileForm.path)
+/**
+ * 解析用户输入的实际路径字符串，统一逗号格式后拆分为路径数组。
+ * 中文逗号（，）统一转为英文逗号（,）。
+ */
+function parseRealPaths(raw: string): string[] {
+  return raw
+    .replace(/，/g, ',')  // 中文逗号 → 英文逗号
+    .split(',')
+    .map(s => s.trim())
+    .filter(s => s.length > 0)
+}
+
+function onRealPathsInput() {
+  const paths = parseRealPaths(fileForm.real_paths)
+  if (paths.length > 0) {
+    const first = paths[0]
+    fileForm.display_name = filenameFromPath(first)
+    fileForm.mime_type = mimeFromPath(first)
+  }
+}
+
+function sanitizeFileSize(e: Event) {
+  const input = e.target as HTMLInputElement
+  const raw = input.value.replace(/\s/g, '').replace(/[^\d]/g, '')
+  fileForm.file_size = raw ? parseInt(raw, 10) : 0
 }
 
 function mimeFromPath(p: string): string | null {
@@ -479,16 +508,10 @@ function mimeFromPath(p: string): string | null {
   return map[ext] || null
 }
 
-function sanitizeFileSize(e: Event) {
-  const input = e.target as HTMLInputElement
-  const raw = input.value.replace(/\s/g, '').replace(/[^\d]/g, '')
-  fileForm.file_size = raw ? parseInt(raw, 10) : 0
-}
-
 function openEditFile(f: FileItem) {
   editingFile.value = f
   fileForm.folder_id = f.folder_id
-  fileForm.path = f.path
+  fileForm.real_paths = f.path
   fileForm.display_name = f.display_name
   fileForm.file_size = f.file_size
   fileForm.mime_type = f.mime_type
@@ -500,19 +523,29 @@ function closeFileModal() {
 }
 
 async function saveFile() {
-  if (!fileForm.path) return
+  if (!fileForm.real_paths) return
   try {
     if (editingFile.value) {
       const data: FileUpdateRequest = {
         folder_id: fileForm.folder_id || null,
-        path: fileForm.path || null,
+        path: fileForm.real_paths || null,
         display_name: fileForm.display_name || null,
         file_size: fileForm.file_size || null,
         mime_type: fileForm.mime_type || null,
       }
       await updateFile(editingFile.value.id, data)
     } else {
-      await createFile(fileForm)
+      // 多路径批量创建
+      const paths = parseRealPaths(fileForm.real_paths)
+      for (const p of paths) {
+        await createFile({
+          folder_id: fileForm.folder_id || '',
+          path: p,
+          display_name: fileForm.display_name || filenameFromPath(p),
+          file_size: fileForm.file_size,
+          mime_type: fileForm.mime_type || mimeFromPath(p),
+        })
+      }
     }
     showFileModal.value = false
     await loadFiles()
