@@ -13,8 +13,10 @@
  */
 export interface DashboardStats {
   file_count: number        // 文件总数
-  collection_count: number  // 集合总数
-  tag_count: number         // 标签总数
+  image_count: number       // 图片数
+  video_count: number       // 视频数
+  audio_count: number       // 音频数
+  other_count: number       // 其他文件数
   storage_bytes: number     // 存储空间总字节数
   storage_display: string   // 存储空间的人类可读格式（如 "1.5 GB"）
 }

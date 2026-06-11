@@ -47,8 +47,10 @@ import { fetchDashboardStats } from '@/features/dashboard/api'
 // 统计数据响应式状态，初始值为 0
 const stats = ref<DashboardStats>({
   file_count: 0,
-  collection_count: 0,
-  tag_count: 0,
+  image_count: 0,
+  video_count: 0,
+  audio_count: 0,
+  other_count: 0,
   storage_bytes: 0,
   storage_display: '0 B',
 })
@@ -63,8 +65,10 @@ const stats = ref<DashboardStats>({
  */
 const cards = computed(() => [
   { icon: '📁', value: stats.value.file_count, label: '文件总数' },
-  { icon: '📂', value: stats.value.collection_count, label: '集合数' },
-  { icon: '🏷️', value: stats.value.tag_count, label: '标签数' },
+  { icon: '🖼️', value: stats.value.image_count, label: '图片' },
+  { icon: '🎬', value: stats.value.video_count, label: '视频' },
+  { icon: '🎵', value: stats.value.audio_count, label: '音频' },
+  { icon: '📄', value: stats.value.other_count, label: '其他' },
   { icon: '💾', value: stats.value.storage_display, label: '存储空间' },
 ])
 
