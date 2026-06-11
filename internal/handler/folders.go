@@ -223,7 +223,12 @@ func (h *FoldersHandler) Stats(w http.ResponseWriter, r *http.Request) {
 		}
 		for rows.Next() {
 			var subID string
-			rows.Scan(&subID)
+			err = rows.Scan(&subID)
+			if err != nil {
+				rows.Close()
+				writeError(w, http.StatusInternalServerError, "扫描子文件夹ID失败")
+				return
+			}
 			allFolderIDs = append(allFolderIDs, subID)
 			queue = append(queue, subID)
 		}

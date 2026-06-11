@@ -100,6 +100,6 @@ func formatSize(bytes int64) string {
 	case bytes >= KB:
 		return fmt.Sprintf("%.1f KB", float64(bytes)/KB)
 	default:
-		return "0 B"
+		return fmt.Sprintf("%d B", bytes)
 	}
 }
