@@ -27,31 +27,44 @@
     <div class="page-header">
       <h1 class="page-title">{{ currentFolder ? currentFolder.name : '文件管理' }}</h1>
       <div class="header-actions">
+        <div class="view-toggle">
+          <button class="btn btn-sm" :class="{ active: viewMode === 'grid' }" @click="viewMode = 'grid'">▦ 网格</button>
+          <button class="btn btn-sm" :class="{ active: viewMode === 'list' }" @click="viewMode = 'list'">☰ 列表</button>
+        </div>
         <button class="btn" @click="openCreateFolder">+ 新建文件夹</button>
         <button class="btn btn-primary" @click="openCreateFile">+ 新建文件</button>
       </div>
     </div>
 
-    <!-- 文件夹网格 -->
-    <div class="folder-section" v-if="folders.length">
-      <div class="folder-grid">
-        <div class="folder-card" v-for="f in folders" :key="f.id" @dblclick="enterFolder(f)">
-          <span class="folder-icon">{{ f.icon }}</span>
-          <span class="folder-name">{{ f.name }}</span>
-          <div class="folder-actions">
+    <!-- 网格视图 -->
+    <template v-if="viewMode === 'grid'">
+      <div class="item-grid" v-if="folders.length || files.length">
+        <div class="item-card folder-card" v-for="f in folders" :key="f.id" @dblclick="enterFolder(f)">
+          <span class="item-icon">{{ f.icon }}</span>
+          <span class="item-name">{{ f.name }}</span>
+          <div class="item-actions">
             <button class="btn-icon" title="重命名" @click.stop="openEditFolder(f)">✏️</button>
             <button class="btn-icon" title="删除" @click.stop="confirmDeleteFolder(f)">🗑️</button>
           </div>
         </div>
+        <div class="item-card file-card" v-for="f in files" :key="f.id">
+          <span class="item-icon">{{ fileIcon(f.mime_type) }}</span>
+          <span class="item-name">{{ f.display_name || filenameFromPath(f.path) }}</span>
+          <div class="item-meta">{{ formatFileSize(f.file_size) }}</div>
+          <div class="item-actions">
+            <button class="btn-icon" title="编辑" @click.stop="openEditFile(f)">✏️</button>
+            <button class="btn-icon" title="删除" @click.stop="confirmDeleteFile(f)">🗑️</button>
+          </div>
+        </div>
       </div>
-    </div>
+    </template>
 
-    <!-- 文件表格 -->
-    <div class="table-card" v-if="files.length">
+    <!-- 列表视图 -->
+    <div class="table-card" v-if="viewMode === 'list' && (folders.length || files.length)">
       <table class="data-table">
         <thead>
           <tr>
-            <th>文件</th>
+            <th>名称</th>
             <th>大小</th>
             <th>类型</th>
             <th>创建时间</th>
@@ -59,15 +72,23 @@
           </tr>
         </thead>
         <tbody>
+          <tr v-for="f in folders" :key="f.id" class="folder-row" @dblclick="enterFolder(f)">
+            <td>
+              <span class="row-icon">{{ f.icon }}</span>
+              <span class="row-name">{{ f.name }}</span>
+            </td>
+            <td class="text-muted">—</td>
+            <td><span class="type-badge folder-badge">文件夹</span></td>
+            <td class="cell-date">{{ formatDate(f.created_at) }}</td>
+            <td class="cell-actions">
+              <button class="btn btn-sm" @click.stop="openEditFolder(f)">重命名</button>
+              <button class="btn btn-sm btn-danger" @click.stop="confirmDeleteFolder(f)">删除</button>
+            </td>
+          </tr>
           <tr v-for="f in files" :key="f.id">
-            <td class="cell-file">
-              <div class="file-name">{{ f.display_name || filenameFromPath(f.path) }}</div>
-              <div class="file-path-breadcrumb">
-                <span class="crumb-seg" v-for="(seg, i) in pathSegments(f.path)" :key="i">
-                  <span v-if="i > 0" class="crumb-sep">›</span>
-                  <span class="crumb-text">{{ seg }}</span>
-                </span>
-              </div>
+            <td>
+              <span class="row-icon">{{ fileIcon(f.mime_type) }}</span>
+              <span class="row-name">{{ f.display_name || filenameFromPath(f.path) }}</span>
             </td>
             <td>{{ formatFileSize(f.file_size) }}</td>
             <td>
@@ -177,6 +198,8 @@ import { fetchFolders, createFolder, updateFolder, deleteFolder } from '@/featur
 const currentFolderId = ref<string | null>(null)
 const currentFolder = ref<FolderItem | null>(null)
 const breadcrumbs = ref<{ id: string; name: string }[]>([])
+// 视图模式
+const viewMode = ref<'grid' | 'list'>('grid')
 
 // 数据
 const folders = ref<FolderItem[]>([])
@@ -398,6 +421,18 @@ function pathSegments(p: string): string[] {
   parts.pop()
   return parts.filter(Boolean)
 }
+
+// 根据 MIME 类型返回文件图标
+function fileIcon(mime: string | null): string {
+  if (!mime) return '📄'
+  if (mime.startsWith('image/')) return '🖼️'
+  if (mime.startsWith('video/')) return '🎬'
+  if (mime.startsWith('audio/')) return '🎵'
+  if (mime.startsWith('text/')) return '📝'
+  if (mime.includes('pdf')) return '📕'
+  if (mime.includes('zip') || mime.includes('rar') || mime.includes('tar')) return '📦'
+  return '📄'
+}
 </script>
 
 <style scoped>
@@ -436,44 +471,69 @@ function pathSegments(p: string): string[] {
   margin-bottom: 24px;
 }
 .page-title { font-size: 24px; font-weight: 600; }
-.header-actions { display: flex; gap: 8px; }
+.header-actions { display: flex; gap: 8px; align-items: center; }
 
-/* 文件夹网格 */
-.folder-section { margin-bottom: 20px; }
-.folder-grid {
+/* 视图切换 */
+.view-toggle {
+  display: flex;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-right: 8px;
+}
+.view-toggle .btn {
+  border: none;
+  border-radius: 0;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+.view-toggle .btn:first-child { border-right: 1px solid var(--border-color); }
+.view-toggle .btn.active { background: var(--accent); color: var(--accent-text); }
+
+/* 网格视图 */
+.item-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 12px;
 }
-.folder-card {
+.item-card {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
+  gap: 8px;
+  padding: 20px 12px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 10px;
-  cursor: pointer;
+  cursor: default;
   transition: all .15s;
   position: relative;
 }
-.folder-card:hover { border-color: var(--accent); background: var(--bg-tertiary); }
-.folder-icon { font-size: 24px; flex-shrink: 0; }
-.folder-name {
-  flex: 1;
-  font-size: 14px;
+.item-card:hover { border-color: var(--accent); background: var(--bg-tertiary); }
+.folder-card { cursor: pointer; }
+.item-icon { font-size: 36px; }
+.item-name {
+  font-size: 13px;
   font-weight: 500;
+  text-align: center;
+  word-break: break-all;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 100%;
 }
-.folder-actions {
+.item-meta { font-size: 11px; color: var(--text-muted); }
+.item-actions {
   display: flex;
   gap: 4px;
   opacity: 0;
   transition: opacity .15s;
+  position: absolute;
+  top: 8px;
+  right: 8px;
 }
-.folder-card:hover .folder-actions { opacity: 1; }
+.item-card:hover .item-actions { opacity: 1; }
 .btn-icon {
   background: none;
   border: none;
@@ -484,7 +544,7 @@ function pathSegments(p: string): string[] {
 }
 .btn-icon:hover { background: var(--bg-primary); }
 
-/* 表格卡片 */
+/* 表格 */
 .table-card {
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
@@ -510,18 +570,16 @@ function pathSegments(p: string): string[] {
 }
 .data-table tr:last-child td { border-bottom: none; }
 .data-table tr:hover td { background: var(--bg-tertiary); }
-
-.cell-file { max-width: 400px; }
-.file-name { font-weight: 500; margin-bottom: 4px; }
-.file-path-breadcrumb {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
+.folder-row { cursor: pointer; }
+.row-icon { font-size: 20px; margin-right: 10px; vertical-align: middle; }
+.row-name { font-weight: 500; }
+.type-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
   font-size: 12px;
-  color: var(--text-muted);
 }
-.crumb-sep { margin: 0 4px; color: var(--text-muted); }
-.crumb-text { white-space: nowrap; }
+.folder-badge { background: var(--bg-tertiary); color: var(--accent); }
 
 .cell-date { white-space: nowrap; color: var(--text-muted); font-size: 13px; }
 .cell-actions { white-space: nowrap; display: flex; gap: 8px; }
