@@ -11,7 +11,20 @@
 
 <template>
   <div class="files-page">
-    <!-- 页面标题 + 操作栏 -->
+    <!-- 面包屑导航 -->
+    <div class="breadcrumb">
+      <span class="breadcrumb-item" @click="goRoot">📂 根目录</span>
+      <template v-for="(seg, i) in currentPathSegments" :key="i">
+        <span class="breadcrumb-sep">›</span>
+        <span class="breadcrumb-item" :class="{ active: i === currentPathSegments.length - 1 }">
+          {{ seg }}
+        </span>
+      </template>
+    </div>
+
+    <!-- 操作栏 -->
+
+    <!-- 操作栏 -->
     <div class="page-header">
       <h1 class="page-title">文件管理</h1>
       <button class="btn btn-primary" @click="openCreate">+ 新建文件</button>
@@ -22,8 +35,7 @@
       <table class="data-table" v-if="files.length">
         <thead>
           <tr>
-            <th>文件名</th>
-            <th>路径</th>
+            <th>文件</th>
             <th>大小</th>
             <th>类型</th>
             <th>创建时间</th>
@@ -32,8 +44,15 @@
         </thead>
         <tbody>
           <tr v-for="f in files" :key="f.id">
-            <td class="cell-name">{{ f.display_name || f.path.split('/').pop() || f.path }}</td>
-            <td class="cell-path">{{ f.path }}</td>
+            <td class="cell-file">
+              <div class="file-name">{{ f.display_name || filenameFromPath(f.path) }}</div>
+              <div class="file-path-breadcrumb">
+                <span class="crumb-seg" v-for="(seg, i) in pathSegments(f.path)" :key="i">
+                  <span v-if="i > 0" class="crumb-sep">›</span>
+                  <span class="crumb-text">{{ seg }}</span>
+                </span>
+              </div>
+            </td>
             <td>{{ formatFileSize(f.file_size) }}</td>
             <td>
               <span class="mime-badge" v-if="f.mime_type">{{ f.mime_type }}</span>
@@ -250,10 +269,57 @@ function formatDate(ts: string): string {
   const d = new Date(ts)
   return d.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
 }
+
+// 从路径提取文件名
+function filenameFromPath(p: string): string {
+  const normalized = p.replace(/\\/g, '/')
+  return normalized.split('/').pop() || p
+}
+
+// 拆分路径为面包屑段（不含文件名）
+function pathSegments(p: string): string[] {
+  const normalized = p.replace(/\\/g, '/')
+  const parts = normalized.split('/')
+  // 去掉最后的文件名
+  parts.pop()
+  return parts.filter(Boolean)
+}
+
+// 当前导航面包屑（根目录为空）
+const currentPathSegments = ref<string[]>([])
+
+function goRoot() {
+  currentPathSegments.value = []
+}
 </script>
 
 <style scoped>
 .files-page { max-width: 1200px; }
+
+/* 面包屑 */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  flex-wrap: wrap;
+}
+.breadcrumb-item {
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all .15s;
+}
+.breadcrumb-item:hover { color: var(--accent); background: var(--bg-tertiary); }
+.breadcrumb-item.active { color: var(--text-primary); font-weight: 500; cursor: default; }
+.breadcrumb-item.active:hover { background: transparent; }
+.breadcrumb-sep { color: var(--text-muted); user-select: none; }
 
 /* 页面头部 */
 .page-header {
@@ -296,8 +362,20 @@ function formatDate(ts: string): string {
 .data-table tr:last-child td { border-bottom: none; }
 .data-table tr:hover td { background: var(--bg-tertiary); }
 
-.cell-name { font-weight: 500; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cell-path { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-family: monospace; font-size: 13px; }
+.cell-file { max-width: 400px; }
+.file-name { font-weight: 500; margin-bottom: 4px; }
+.file-path-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.crumb-sep { margin: 0 4px; color: var(--text-muted); }
+.crumb-text { white-space: nowrap; }
+.crumb-text:hover { color: var(--accent); }
+
 .cell-date { white-space: nowrap; color: var(--text-muted); font-size: 13px; }
 .cell-actions { white-space: nowrap; display: flex; gap: 8px; }
 
