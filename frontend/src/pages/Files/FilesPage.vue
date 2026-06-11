@@ -135,7 +135,7 @@
         <div class="modal-body">
           <div class="form-group">
             <label>文件路径 <span class="required">*</span></label>
-            <input v-model="fileForm.path" class="form-input" placeholder="E:\Game\YGO\MDPro3\Expansions\1.cdb" />
+            <input v-model="fileForm.path" class="form-input" placeholder="E:\Game\YGO\MDPro3\Expansions\1.cdb" @input="autoFillDisplayName" />
           </div>
           <div class="form-group">
             <label>显示名称</label>
@@ -437,6 +437,10 @@ function openCreateFile() {
   fileForm.file_size = 0
   fileForm.mime_type = null
   showFileModal.value = true
+}
+
+function autoFillDisplayName() {
+  fileForm.display_name = filenameFromPath(fileForm.path)
 }
 
 function openEditFile(f: FileItem) {
