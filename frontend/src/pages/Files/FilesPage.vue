@@ -144,7 +144,7 @@
           <div class="form-row">
             <div class="form-group">
               <label>文件大小（字节）</label>
-              <input v-model.number="fileForm.file_size" class="form-input" placeholder="0" />
+              <input v-model="fileForm.file_size" class="form-input" placeholder="0" @input="sanitizeFileSize" />
             </div>
             <div class="form-group">
               <label>MIME 类型</label>
@@ -441,6 +441,12 @@ function openCreateFile() {
 
 function autoFillDisplayName() {
   fileForm.display_name = filenameFromPath(fileForm.path)
+}
+
+function sanitizeFileSize(e: Event) {
+  const input = e.target as HTMLInputElement
+  const raw = input.value.replace(/\s/g, '').replace(/[^\d]/g, '')
+  fileForm.file_size = raw ? parseInt(raw, 10) : 0
 }
 
 function openEditFile(f: FileItem) {
