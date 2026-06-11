@@ -9,7 +9,7 @@
 -->
 
 <template>
-  <div class="files-page">
+  <div class="files-page" @click="closeContextMenu" @contextmenu.prevent>
     <!-- 面包屑导航 -->
     <div class="breadcrumb">
       <span class="breadcrumb-item" @click="goRoot">📂 根目录</span>
@@ -39,22 +39,14 @@
     <!-- 网格视图 -->
     <template v-if="viewMode === 'grid'">
       <div class="item-grid" v-if="folders.length || files.length">
-        <div class="item-card folder-card" v-for="f in folders" :key="f.id" @dblclick="enterFolder(f)">
+        <div class="item-card folder-card" v-for="f in folders" :key="f.id" @dblclick="enterFolder(f)" @contextmenu.prevent="openContextMenu($event, f)">
           <span class="item-icon">{{ f.icon }}</span>
           <span class="item-name">{{ f.name }}</span>
-          <div class="item-actions">
-            <button class="btn-icon" title="重命名" @click.stop="openEditFolder(f)">✏️</button>
-            <button class="btn-icon" title="删除" @click.stop="confirmDeleteFolder(f)">🗑️</button>
-          </div>
         </div>
-        <div class="item-card file-card" v-for="f in files" :key="f.id">
+        <div class="item-card file-card" v-for="f in files" :key="f.id" @contextmenu.prevent="openContextMenu($event, null, f)">
           <span class="item-icon">{{ fileIcon(f.mime_type) }}</span>
           <span class="item-name">{{ f.display_name || filenameFromPath(f.path) }}</span>
           <div class="item-meta">{{ formatFileSize(f.file_size) }}</div>
-          <div class="item-actions">
-            <button class="btn-icon" title="编辑" @click.stop="openEditFile(f)">✏️</button>
-            <button class="btn-icon" title="删除" @click.stop="confirmDeleteFile(f)">🗑️</button>
-          </div>
         </div>
       </div>
     </template>
@@ -72,7 +64,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="f in folders" :key="f.id" class="folder-row" @dblclick="enterFolder(f)">
+          <tr v-for="f in folders" :key="f.id" class="folder-row" @dblclick="enterFolder(f)" @contextmenu.prevent="openContextMenu($event, f)">
             <td>
               <span class="row-icon">{{ f.icon }}</span>
               <span class="row-name">{{ f.name }}</span>
@@ -85,7 +77,7 @@
               <button class="btn btn-sm btn-danger" @click.stop="confirmDeleteFolder(f)">删除</button>
             </td>
           </tr>
-          <tr v-for="f in files" :key="f.id">
+          <tr v-for="f in files" :key="f.id" @contextmenu.prevent="openContextMenu($event, null, f)">
             <td>
               <span class="row-icon">{{ fileIcon(f.mime_type) }}</span>
               <span class="row-name">{{ f.display_name || filenameFromPath(f.path) }}</span>
@@ -184,6 +176,53 @@
         </div>
       </div>
     </div>
+
+    <!-- 右键菜单 -->
+    <div
+      class="context-menu"
+      v-if="contextMenu.visible"
+      :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
+    >
+      <div class="context-item" @click="contextOpen">📂 打开</div>
+      <div class="context-item" v-if="contextMenu.folder" @click="contextRename">✏️ 重命名</div>
+      <div class="context-item" v-if="contextMenu.file" @click="contextEdit">✏️ 编辑</div>
+      <div class="context-item" v-if="contextMenu.folder" @click="contextDetail">ℹ️ 详情</div>
+      <div class="context-sep"></div>
+      <div class="context-item context-danger" @click="contextDelete">🗑️ 删除</div>
+    </div>
+
+    <!-- 文件夹详情弹窗 -->
+    <div class="modal-overlay" v-if="showDetailModal" @click.self="showDetailModal = false">
+      <div class="modal modal-sm">
+        <div class="modal-header">
+          <h2>文件夹详情</h2>
+          <button class="btn-close" @click="showDetailModal = false">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="detail-label">名称</span>
+              <span class="detail-value">{{ detailFolder?.name }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">子文件夹</span>
+              <span class="detail-value">{{ detailStats.subFolders }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">包含文件</span>
+              <span class="detail-value">{{ detailStats.files }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">创建时间</span>
+              <span class="detail-value">{{ detailFolder ? formatDate(detailFolder.created_at) : '—' }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" @click="showDetailModal = false">关闭</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -200,6 +239,20 @@ const currentFolder = ref<FolderItem | null>(null)
 const breadcrumbs = ref<{ id: string; name: string }[]>([])
 // 视图模式
 const viewMode = ref<'grid' | 'list'>('grid')
+
+// 右键菜单
+const contextMenu = reactive({
+  visible: false,
+  x: 0,
+  y: 0,
+  folder: null as FolderItem | null,
+  file: null as FileItem | null,
+})
+
+// 文件夹详情
+const showDetailModal = ref(false)
+const detailFolder = ref<FolderItem | null>(null)
+const detailStats = reactive({ subFolders: 0, files: 0 })
 
 // 数据
 const folders = ref<FolderItem[]>([])
@@ -273,6 +326,61 @@ function goBreadcrumb(i: number) {
   currentFolderId.value = last.id
   currentFolder.value = { id: last.id, name: last.name } as FolderItem
   loadData()
+}
+
+// ===== 右键菜单 =====
+
+function openContextMenu(e: MouseEvent, folder?: FolderItem | null, file?: FileItem | null) {
+  contextMenu.visible = true
+  contextMenu.x = e.clientX
+  contextMenu.y = e.clientY
+  contextMenu.folder = folder || null
+  contextMenu.file = file || null
+}
+
+function closeContextMenu() {
+  contextMenu.visible = false
+}
+
+function contextOpen() {
+  if (contextMenu.folder) enterFolder(contextMenu.folder)
+  closeContextMenu()
+}
+
+function contextRename() {
+  if (contextMenu.folder) openEditFolder(contextMenu.folder)
+  closeContextMenu()
+}
+
+function contextEdit() {
+  if (contextMenu.file) openEditFile(contextMenu.file)
+  closeContextMenu()
+}
+
+async function contextDetail() {
+  if (!contextMenu.folder) return
+  detailFolder.value = contextMenu.folder
+  // 查询统计信息
+  try {
+    const [subs, allFiles] = await Promise.all([
+      fetchFolders(contextMenu.folder.id),
+      fetchFiles(),
+    ])
+    detailStats.subFolders = subs.length
+    // TODO: 等 files API 支持按 folder_id 过滤后精准统计
+    detailStats.files = 0
+  } catch {
+    detailStats.subFolders = 0
+    detailStats.files = 0
+  }
+  showDetailModal.value = true
+  closeContextMenu()
+}
+
+function contextDelete() {
+  if (contextMenu.folder) confirmDeleteFolder(contextMenu.folder)
+  else if (contextMenu.file) confirmDeleteFile(contextMenu.file)
+  closeContextMenu()
 }
 
 // ===== 文件夹操作 =====
@@ -524,25 +632,6 @@ function fileIcon(mime: string | null): string {
   max-width: 100%;
 }
 .item-meta { font-size: 11px; color: var(--text-muted); }
-.item-actions {
-  display: flex;
-  gap: 4px;
-  opacity: 0;
-  transition: opacity .15s;
-  position: absolute;
-  top: 8px;
-  right: 8px;
-}
-.item-card:hover .item-actions { opacity: 1; }
-.btn-icon {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
-  padding: 2px;
-  border-radius: 4px;
-}
-.btn-icon:hover { background: var(--bg-primary); }
 
 /* 表格 */
 .table-card {
@@ -686,5 +775,52 @@ function fileIcon(mime: string | null): string {
 .form-input:focus { border-color: var(--accent); }
 .form-input::placeholder { color: var(--text-muted); }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+/* 右键菜单 */
+.context-menu {
+  position: fixed;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 4px 0;
+  min-width: 160px;
+  z-index: 200;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .3);
+}
+.context-item {
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background .1s;
+}
+.context-item:hover { background: var(--bg-tertiary); }
+.context-danger { color: #ef4444; }
+.context-sep {
+  height: 1px;
+  background: var(--border-color);
+  margin: 4px 0;
+}
+
+/* 详情弹窗 */
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.detail-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+.detail-value {
+  font-size: 16px;
+  font-weight: 600;
+}
+
 .text-muted { color: var(--text-muted); }
 </style>
