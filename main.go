@@ -58,11 +58,18 @@ func main() {
 
 	// 创建仪表盘处理器，注入数据库连接
 	dashboardH := &handler.DashboardHandler{DB: database}
+	// 创建设置处理器
+	settingsH := &handler.SettingsHandler{DB: database}
 
 	mux := http.NewServeMux()
 
-	// GET /api/dashboard/stats — 获取仪表盘统计数据（文件数、集合数、标签数、存储空间）
+	// GET /api/dashboard/stats — 获取仪表盘统计数据
 	mux.HandleFunc("GET /api/dashboard/stats", dashboardH.Stats)
+
+	// GET /api/settings — 获取所有设置项
+	mux.HandleFunc("GET /api/settings", settingsH.GetAll)
+	// PUT /api/settings — 批量更新设置项
+	mux.HandleFunc("PUT /api/settings", settingsH.Update)
 
 	// GET /api/health — 健康检查端点，返回服务状态
 	// 会实际 ping 数据库以确认连接正常

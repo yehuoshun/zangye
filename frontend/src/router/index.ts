@@ -25,6 +25,11 @@ const routes = [
         // 懒加载：仅在访问时加载 Dashboard 页面组件，减小首屏体积
         component: () => import('@/pages/Dashboard/DashboardPage.vue'),
       },
+      {
+        path: 'settings',        // /settings
+        name: 'Settings',
+        component: () => import('@/pages/Settings/SettingsPage.vue'),
+      },
     ],
   },
   {

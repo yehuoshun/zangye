@@ -31,6 +31,10 @@
           <span class="nav-icon">📊</span>
           <span class="nav-label">仪表盘</span>
         </router-link>
+        <router-link to="/settings" class="nav-item">
+          <span class="nav-icon">⚙️</span>
+          <span class="nav-label">设置</span>
+        </router-link>
         <!-- TODO: 后续添加更多导航项（文件管理、标签管理等） -->
       </nav>
 
