@@ -38,14 +38,6 @@
         </select>
       </div>
 
-      <!-- 数据库版本（只读） -->
-      <div class="setting-item">
-        <div class="setting-label">
-          <span class="setting-name">数据库版本</span>
-        </div>
-        <span class="setting-value">{{ form.version }}</span>
-      </div>
-
       <!-- 保存状态 -->
       <div class="setting-status" v-if="status">{{ status }}</div>
     </div>
@@ -56,7 +48,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { fetchSettings, updateSettings } from '@/features/settings/api'
 
-const form = reactive({ theme: 'dark', layout: 'sidebar', version: '' })
+const form = reactive({ theme: 'dark', layout: 'sidebar' })
 const status = ref('')
 
 onMounted(async () => {
@@ -64,7 +56,6 @@ onMounted(async () => {
     const data = await fetchSettings()
     form.theme = data.theme || 'dark'
     form.layout = data.layout || 'sidebar'
-    form.version = data.version || ''
   } catch (e) {
     console.error('加载设置失败', e)
   }
