@@ -29,5 +29,5 @@
       "@/*": ["src/*"]                     // @ 别名映射到 src 目录
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.vue"]  // 包含的文件
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.vue", "vite.config.ts"]  // 包含的文件
 }
