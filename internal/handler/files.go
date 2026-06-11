@@ -74,16 +74,11 @@ func (h *FilesHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 
 	var f FileResponse
-	err := h.DB.QueryRow(
+	if !scanRow(w, h.DB.QueryRow(
 		"SELECT id, folder_id, path, display_name, file_size, mime_type, sort_order, created_at FROM files WHERE id = ?",
 		id,
-	).Scan(&f.ID, &f.FolderID, &f.Path, &f.DisplayName, &f.FileSize, &f.MimeType, &f.SortOrder, &f.CreatedAt)
-	if err == sql.ErrNoRows {
+	), &f.ID, &f.FolderID, &f.Path, &f.DisplayName, &f.FileSize, &f.MimeType, &f.SortOrder, &f.CreatedAt) {
 		writeError(w, http.StatusNotFound, "文件不存在")
-		return
-	}
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "查询文件失败")
 		return
 	}
 
@@ -118,10 +113,12 @@ func (h *FilesHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var f FileResponse
-	h.DB.QueryRow(
+	if !mustScanRow(w, h.DB.QueryRow(
 		"SELECT id, folder_id, path, display_name, file_size, mime_type, sort_order, created_at FROM files WHERE id = ?",
 		id,
-	).Scan(&f.ID, &f.FolderID, &f.Path, &f.DisplayName, &f.FileSize, &f.MimeType, &f.SortOrder, &f.CreatedAt)
+	), &f.ID, &f.FolderID, &f.Path, &f.DisplayName, &f.FileSize, &f.MimeType, &f.SortOrder, &f.CreatedAt) {
+		return
+	}
 
 	writeJSON(w, http.StatusCreated, f)
 }
@@ -188,10 +185,12 @@ func (h *FilesHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	// 返回更新后的文件
 	var f FileResponse
-	h.DB.QueryRow(
+	if !mustScanRow(w, h.DB.QueryRow(
 		"SELECT id, folder_id, path, display_name, file_size, mime_type, sort_order, created_at FROM files WHERE id = ?",
 		id,
-	).Scan(&f.ID, &f.FolderID, &f.Path, &f.DisplayName, &f.FileSize, &f.MimeType, &f.SortOrder, &f.CreatedAt)
+	), &f.ID, &f.FolderID, &f.Path, &f.DisplayName, &f.FileSize, &f.MimeType, &f.SortOrder, &f.CreatedAt) {
+		return
+	}
 
 	writeJSON(w, http.StatusOK, f)
 }

@@ -41,6 +41,20 @@ func scanRow(w http.ResponseWriter, row *sql.Row, dest ...any) bool {
 	return true
 }
 
+// mustScanRow 执行 QueryRow 扫描——找不到行时返回 500。
+// 用于 Create/Update 后回查，此时数据一定存在。
+func mustScanRow(w http.ResponseWriter, row *sql.Row, dest ...any) bool {
+	if err := row.Scan(dest...); err != nil {
+		if err == sql.ErrNoRows {
+			writeError(w, http.StatusInternalServerError, "创建/更新后回查失败: 记录不存在")
+		} else {
+			writeError(w, http.StatusInternalServerError, "数据库查询失败")
+		}
+		return false
+	}
+	return true
+}
+
 // closeRows 安全关闭 sql.Rows，记录关闭错误。
 // 用于替换 defer rows.Close()，确保错误被捕获。
 func closeRows(rows *sql.Rows) {

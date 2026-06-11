@@ -81,16 +81,11 @@ func (h *FoldersHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 
 	var f FolderResponse
-	err := h.DB.QueryRow(
+	if !scanRow(w, h.DB.QueryRow(
 		"SELECT id, name, icon, parent_id, sort_order, created_at, updated_at FROM folders WHERE id = ?",
 		id,
-	).Scan(&f.ID, &f.Name, &f.Icon, &f.ParentID, &f.SortOrder, &f.CreatedAt, &f.UpdatedAt)
-	if err == sql.ErrNoRows {
+	), &f.ID, &f.Name, &f.Icon, &f.ParentID, &f.SortOrder, &f.CreatedAt, &f.UpdatedAt) {
 		writeError(w, http.StatusNotFound, "文件夹不存在")
-		return
-	}
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "查询文件夹失败")
 		return
 	}
 
@@ -126,10 +121,12 @@ func (h *FoldersHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var f FolderResponse
-	h.DB.QueryRow(
+	if !mustScanRow(w, h.DB.QueryRow(
 		"SELECT id, name, icon, parent_id, sort_order, created_at, updated_at FROM folders WHERE id = ?",
 		id,
-	).Scan(&f.ID, &f.Name, &f.Icon, &f.ParentID, &f.SortOrder, &f.CreatedAt, &f.UpdatedAt)
+	), &f.ID, &f.Name, &f.Icon, &f.ParentID, &f.SortOrder, &f.CreatedAt, &f.UpdatedAt) {
+		return
+	}
 
 	writeJSON(w, http.StatusCreated, f)
 }
@@ -184,10 +181,12 @@ func (h *FoldersHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var f FolderResponse
-	h.DB.QueryRow(
+	if !mustScanRow(w, h.DB.QueryRow(
 		"SELECT id, name, icon, parent_id, sort_order, created_at, updated_at FROM folders WHERE id = ?",
 		id,
-	).Scan(&f.ID, &f.Name, &f.Icon, &f.ParentID, &f.SortOrder, &f.CreatedAt, &f.UpdatedAt)
+	), &f.ID, &f.Name, &f.Icon, &f.ParentID, &f.SortOrder, &f.CreatedAt, &f.UpdatedAt) {
+		return
+	}
 
 	writeJSON(w, http.StatusOK, f)
 }
@@ -245,7 +244,9 @@ func (h *FoldersHandler) Stats(w http.ResponseWriter, r *http.Request) {
 			"SELECT COUNT(*), COALESCE(SUM(file_size), 0) FROM files WHERE folder_id IN",
 			allFolderIDs,
 		)
-		h.DB.QueryRow(query, args...).Scan(&stats.FileCount, &stats.TotalSize)
+		if !scanRow(w, h.DB.QueryRow(query, args...), &stats.FileCount, &stats.TotalSize) {
+			return
+		}
 	}
 
 	writeJSON(w, http.StatusOK, stats)
