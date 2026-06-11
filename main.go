@@ -67,6 +67,7 @@ func main() {
 	mux.HandleFunc("PUT /api/settings", settingsH.Update)
 	// 文件夹管理
 	mux.HandleFunc("GET /api/folders", foldersH.List)
+	mux.HandleFunc("GET /api/folders/{id}/stats", foldersH.Stats)
 	mux.HandleFunc("GET /api/folders/{id}", foldersH.Get)
 	mux.HandleFunc("POST /api/folders", foldersH.Create)
 	mux.HandleFunc("PUT /api/folders/{id}", foldersH.Update)

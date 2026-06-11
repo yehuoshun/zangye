@@ -192,6 +192,60 @@ func (h *FoldersHandler) Update(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, f)
 }
 
+// FolderStatsResponse 是文件夹统计信息的响应结构体。
+type FolderStatsResponse struct {
+	FolderCount  int   `json:"folder_count"`
+	FileCount    int   `json:"file_count"`
+	TotalSize    int64 `json:"total_size"`
+}
+
+// Stats GET /api/folders/{id}/stats — 获取文件夹统计（递归子文件夹）
+func (h *FoldersHandler) Stats(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+
+	// 确认文件夹存在
+	var exists int
+	if err := h.DB.QueryRow("SELECT 1 FROM folders WHERE id = ?", id).Scan(&exists); err == sql.ErrNoRows {
+		writeError(w, http.StatusNotFound, "文件夹不存在")
+		return
+	}
+
+	// 递归收集所有子文件夹 ID
+	allFolderIDs := []string{id}
+	queue := []string{id}
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+		rows, err := h.DB.Query("SELECT id FROM folders WHERE parent_id = ?", current)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "查询子文件夹失败")
+			return
+		}
+		for rows.Next() {
+			var subID string
+			rows.Scan(&subID)
+			allFolderIDs = append(allFolderIDs, subID)
+			queue = append(queue, subID)
+		}
+		rows.Close()
+	}
+
+	// 统计这些文件夹下的文件数和总大小
+	var stats FolderStatsResponse
+	stats.FolderCount = len(allFolderIDs) - 1 // 减去自身
+
+	// 用 IN 查询所有文件
+	if len(allFolderIDs) > 0 {
+		query, args := buildInQuery(
+			"SELECT COUNT(*), COALESCE(SUM(file_size), 0) FROM files WHERE folder_id IN",
+			allFolderIDs,
+		)
+		h.DB.QueryRow(query, args...).Scan(&stats.FileCount, &stats.TotalSize)
+	}
+
+	writeJSON(w, http.StatusOK, stats)
+}
+
 // Delete DELETE /api/folders/{id} — 删除文件夹（级联删除子文件和子文件夹）
 func (h *FoldersHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")

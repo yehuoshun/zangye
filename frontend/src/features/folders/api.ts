@@ -4,6 +4,15 @@
 
 import type { FolderItem, FolderCreateRequest, FolderUpdateRequest } from './types'
 
+/**
+ * 文件夹统计信息
+ */
+export interface FolderStats {
+  folder_count: number
+  file_count: number
+  total_size: number
+}
+
 const BASE = '/api/folders'
 
 /**
@@ -57,4 +66,13 @@ export async function updateFolder(id: string, data: FolderUpdateRequest): Promi
 export async function deleteFolder(id: string): Promise<void> {
   const res = await fetch(`${BASE}/${id}`, { method: 'DELETE' })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
+}
+
+/**
+ * 获取文件夹统计（递归子文件夹）
+ */
+export async function fetchFolderStats(id: string): Promise<FolderStats> {
+  const res = await fetch(`${BASE}/${id}/stats`)
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res.json()
 }

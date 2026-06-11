@@ -213,6 +213,10 @@
               <span class="detail-value">{{ detailStats.files }}</span>
             </div>
             <div class="detail-item">
+              <span class="detail-label">总大小</span>
+              <span class="detail-value">{{ formatFileSize(detailStats.totalSize) }}</span>
+            </div>
+            <div class="detail-item" style="grid-column: 1 / -1">
               <span class="detail-label">创建时间</span>
               <span class="detail-value">{{ detailFolder ? formatDate(detailFolder.created_at) : '—' }}</span>
             </div>
@@ -231,7 +235,7 @@ import { ref, reactive, onMounted } from 'vue'
 import type { FileItem, FileCreateRequest, FileUpdateRequest } from '@/features/files/types'
 import type { FolderItem, FolderCreateRequest, FolderUpdateRequest } from '@/features/folders/types'
 import { fetchFiles, createFile, updateFile, deleteFile } from '@/features/files/api'
-import { fetchFolders, createFolder, updateFolder, deleteFolder } from '@/features/folders/api'
+import { fetchFolders, createFolder, updateFolder, deleteFolder, fetchFolderStats } from '@/features/folders/api'
 
 // 导航状态
 const currentFolderId = ref<string | null>(null)
@@ -252,7 +256,7 @@ const contextMenu = reactive({
 // 文件夹详情
 const showDetailModal = ref(false)
 const detailFolder = ref<FolderItem | null>(null)
-const detailStats = reactive({ subFolders: 0, files: 0 })
+const detailStats = reactive({ subFolders: 0, files: 0, totalSize: 0 })
 
 // 数据
 const folders = ref<FolderItem[]>([])
@@ -360,18 +364,15 @@ function contextEdit() {
 async function contextDetail() {
   if (!contextMenu.folder) return
   detailFolder.value = contextMenu.folder
-  // 查询统计信息
   try {
-    const [subs, allFiles] = await Promise.all([
-      fetchFolders(contextMenu.folder.id),
-      fetchFiles(),
-    ])
-    detailStats.subFolders = subs.length
-    // TODO: 等 files API 支持按 folder_id 过滤后精准统计
-    detailStats.files = 0
+    const stats = await fetchFolderStats(contextMenu.folder.id)
+    detailStats.subFolders = stats.folder_count
+    detailStats.files = stats.file_count
+    detailStats.totalSize = stats.total_size
   } catch {
     detailStats.subFolders = 0
     detailStats.files = 0
+    detailStats.totalSize = 0
   }
   showDetailModal.value = true
   closeContextMenu()

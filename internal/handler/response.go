@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 )
 
 // writeJSON 将数据序列化为 JSON 并写入响应。
@@ -38,4 +39,15 @@ func scanRow(w http.ResponseWriter, row *sql.Row, dest ...any) bool {
 		return false
 	}
 	return true
+}
+
+// buildInQuery 构建 SQL IN 查询，如 "SELECT ... WHERE id IN (?, ?, ?)"。
+func buildInQuery(prefix string, ids []string) (string, []any) {
+	placeholders := make([]string, len(ids))
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	return prefix + " (" + strings.Join(placeholders, ",") + ")", args
 }
