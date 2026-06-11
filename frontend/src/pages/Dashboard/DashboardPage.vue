@@ -99,18 +99,16 @@ onMounted(async () => {
 
 /* 单张统计卡片 */
 .stat-card {
-  background: #16213e;              /* 深蓝背景 */
-  border: 1px solid #0f3460;        /* 边框 */
-  border-radius: 12px;              /* 圆角 */
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
   padding: 20px;
   display: flex;
   align-items: center;
   gap: 16px;
 }
-/* 悬停时边框变为红色强调 */
-.stat-card:hover { border-color: #60a5fa; }
+.stat-card:hover { border-color: var(--accent); }
 
-/* 图标容器 */
 .stat-icon {
   font-size: 36px;
   width: 56px;
@@ -118,12 +116,11 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0f3460;              /* 深色背景 */
-  border-radius: 12px;              /* 圆角 */
+  background: var(--bg-tertiary);
+  border-radius: 12px;
 }
 
-/* 数值和标签 */
 .stat-info { display: flex; flex-direction: column; gap: 4px; }
-.stat-value { font-size: 28px; font-weight: 700; color: #60a5fa; } /* 淡蓝强调数值 */
-.stat-label { font-size: 13px; color: #606080; }                   /* 灰色标签 */
+.stat-value { font-size: 28px; font-weight: 700; color: var(--accent); }
+.stat-label { font-size: 13px; color: var(--text-muted); }
 </style>

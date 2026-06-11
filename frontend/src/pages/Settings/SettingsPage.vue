@@ -71,6 +71,8 @@ onMounted(async () => {
 })
 
 async function autoSave() {
+  // 立即应用主题
+  document.documentElement.setAttribute('data-theme', form.theme)
   try {
     await updateSettings({ theme: form.theme, layout: form.layout })
     status.value = '✅ 已保存'
@@ -87,8 +89,8 @@ async function autoSave() {
 .page-title { font-size: 24px; font-weight: 600; margin-bottom: 24px; }
 
 .settings-card {
-  background: #16213e;
-  border: 1px solid #0f3460;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 24px;
   display: flex;
@@ -101,26 +103,26 @@ async function autoSave() {
   align-items: center;
   justify-content: space-between;
   padding-bottom: 16px;
-  border-bottom: 1px solid #0f3460;
+  border-bottom: 1px solid var(--border-color);
 }
 .setting-item:last-of-type { border-bottom: none; }
 
 .setting-label { display: flex; flex-direction: column; gap: 4px; }
 .setting-name { font-size: 15px; font-weight: 500; }
-.setting-desc { font-size: 12px; color: #606080; }
+.setting-desc { font-size: 12px; color: var(--text-muted); }
 
 .setting-input, .setting-value {
-  background: #0f3460;
-  border: 1px solid #0f3460;
-  color: #e0e0e0;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
   padding: 8px 12px;
   border-radius: 8px;
   font-size: 14px;
   outline: none;
   min-width: 140px;
 }
-.setting-input:focus { border-color: #60a5fa; }
-.setting-value { color: #606080; }
+.setting-input:focus { border-color: var(--accent); }
+.setting-value { color: var(--text-muted); }
 
 .setting-status {
   font-size: 13px;

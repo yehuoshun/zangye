@@ -56,12 +56,20 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { fetchSettings } from '@/features/settings/api'
 
 // 后端连接状态：true = 在线，false = 离线
 const online = ref(false)
 
-// 组件挂载后检测后端健康状态
+// 组件挂载后检测后端健康状态并加载主题
 onMounted(async () => {
+  // 加载主题设置
+  try {
+    const settings = await fetchSettings()
+    document.documentElement.setAttribute('data-theme', settings.theme || 'dark')
+  } catch { /* 使用默认深色主题 */ }
+
+  // 检测后端健康状态
   try {
     // 调用健康检查 API 确认后端是否在线
     const res = await fetch('/api/health')
@@ -82,12 +90,12 @@ onMounted(async () => {
 /* ===== 侧边栏 ===== */
 
 .sidebar {
-  width: 220px;                    /* 固定宽度 */
-  background: #16213e;             /* 深蓝背景 */
+  width: 220px;
+  background: var(--bg-secondary);
   display: flex;
-  flex-direction: column;          /* 垂直排列：Logo → 导航 → 状态 */
-  border-right: 1px solid #0f3460; /* 右侧分割线 */
-  flex-shrink: 0;                  /* 不缩小 */
+  flex-direction: column;
+  border-right: 1px solid var(--border-color);
+  flex-shrink: 0;
 }
 
 /* Logo 区域 */
@@ -96,14 +104,14 @@ onMounted(async () => {
   align-items: center;
   gap: 10px;
   padding: 20px 16px;
-  border-bottom: 1px solid #0f3460; /* 底部分割线 */
+  border-bottom: 1px solid var(--border-color);
 }
 .logo-icon { font-size: 28px; }
-.logo-text { font-size: 20px; font-weight: 700; color: #60a5fa; } /* 淡蓝强调 */
+.logo-text { font-size: 20px; font-weight: 700; color: var(--accent); }
 
 /* 导航菜单 */
 .nav {
-  flex: 1;                         /* 占据剩余空间 */
+  flex: 1;
   padding: 12px 8px;
   display: flex;
   flex-direction: column;
@@ -117,25 +125,25 @@ onMounted(async () => {
   gap: 10px;
   padding: 10px 12px;
   border-radius: 8px;
-  color: #a0a0b0;                  /* 默认灰色文字 */
-  text-decoration: none;           /* 移除下划线 */
-  transition: all .2s;             /* 悬停过渡动画 */
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: all .2s;
   font-size: 15px;
 }
-.nav-item:hover { background: #0f3460; color: #e0e0e0; }           /* 悬停高亮 */
-.nav-item.router-link-active { background: #0f3460; color: #60a5fa; } /* 激活状态：淡蓝 */
+.nav-item:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+.nav-item.router-link-active { background: var(--bg-tertiary); color: var(--accent); }
 
 .nav-icon { font-size: 18px; }
 
 /* 底部状态栏 */
 .sidebar-footer {
   padding: 16px;
-  border-top: 1px solid #0f3460;   /* 顶部分割线 */
+  border-top: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: #606080;
+  color: var(--text-muted);
 }
 
 /* 状态指示灯 */
