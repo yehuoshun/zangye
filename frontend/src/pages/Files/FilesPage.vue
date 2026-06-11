@@ -503,7 +503,7 @@ async function doDelete() {
 // ===== 工具函数 =====
 
 function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '—'
+  if (bytes === 0) return '0 B'
   const units = ['B', 'KB', 'MB', 'GB', 'TB']
   let i = 0
   let size = bytes
