@@ -9,19 +9,22 @@
 -- ============================================================
 
 -- -----------------------------------------------------------
--- collections: 集合表（树形结构）
--- 一个集合可以包含子集合（通过 parent_id 自引用），
+-- folders: 文件夹表（树形结构）
+-- 一个文件夹可以包含子文件夹（通过 parent_id 自引用），
 -- 形成一个树形目录结构来组织文件。
 -- -----------------------------------------------------------
-CREATE TABLE IF NOT EXISTS collections (
-    id         VARCHAR(36) PRIMARY KEY,                       -- 集合唯一标识（UUID）
-    name       VARCHAR(255) NOT NULL,                         -- 集合名称
-    icon       VARCHAR(10) DEFAULT '📁',                      -- 集合图标（emoji）
-    parent_id  VARCHAR(36) DEFAULT NULL,                      -- 父集合 ID（NULL 表示根集合）
+CREATE TABLE IF NOT EXISTS folders (
+    id         VARCHAR(36) PRIMARY KEY,                       -- 文件夹唯一标识（UUID）
+    name       VARCHAR(255) NOT NULL,                         -- 文件夹名称
+    icon       VARCHAR(10) DEFAULT '📁',                      -- 文件夹图标（emoji）
+    parent_id  VARCHAR(36) DEFAULT NULL,                      -- 父文件夹 ID（NULL 表示根文件夹）
     sort_order INT DEFAULT 0,                                 -- 排序序号（数字越小越靠前）
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,           -- 创建时间
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP  -- 更新时间（自动更新）
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 兼容旧表名
+CREATE TABLE IF NOT EXISTS collections LIKE folders;
 
 -- -----------------------------------------------------------
 -- tags: 标签表
@@ -42,14 +45,14 @@ CREATE TABLE IF NOT EXISTS tags (
 -- -----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS files (
     id              VARCHAR(36) PRIMARY KEY,                   -- 文件唯一标识（UUID）
-    collection_id   VARCHAR(36) NOT NULL,                      -- 所属集合 ID
-    path            VARCHAR(1024) NOT NULL,                    -- 文件在本地文件系统中的路径
+    folder_id       VARCHAR(36) NOT NULL,                      -- 所属文件夹 ID
+    path            VARCHAR(1024) NOT NULL,                    -- 文件路径
     display_name    VARCHAR(512) DEFAULT NULL,                 -- 显示名称（可不同于文件名）
     file_size       BIGINT DEFAULT 0,                          -- 文件大小（字节）
     mime_type       VARCHAR(255) DEFAULT NULL,                 -- MIME 类型
     sort_order      INT DEFAULT 0,                             -- 排序序号
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,       -- 创建时间
-    FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE  -- 集合删除时级联删除文件
+    FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE CASCADE  -- 文件夹删除时级联删除文件
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- -----------------------------------------------------------

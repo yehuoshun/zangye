@@ -16,7 +16,7 @@ type FilesHandler struct {
 // FileResponse 是文件 API 的响应结构体。
 type FileResponse struct {
 	ID           string  `json:"id"`
-	CollectionID string  `json:"collection_id"`
+	FolderID string  `json:"collection_id"`
 	Path         string  `json:"path"`
 	DisplayName  *string `json:"display_name"`
 	FileSize     int64   `json:"file_size"`
@@ -27,7 +27,7 @@ type FileResponse struct {
 
 // FileCreateRequest 是创建文件的请求体。
 type FileCreateRequest struct {
-	CollectionID string  `json:"collection_id"`
+	FolderID string  `json:"collection_id"`
 	Path         string  `json:"path"`
 	DisplayName  *string `json:"display_name"`
 	FileSize     int64   `json:"file_size"`
@@ -37,7 +37,7 @@ type FileCreateRequest struct {
 
 // FileUpdateRequest 是更新文件的请求体。
 type FileUpdateRequest struct {
-	CollectionID *string `json:"collection_id"`
+	FolderID *string `json:"collection_id"`
 	Path         *string `json:"path"`
 	DisplayName  *string `json:"display_name"`
 	FileSize     *int64  `json:"file_size"`
@@ -48,7 +48,7 @@ type FileUpdateRequest struct {
 // List GET /api/files — 获取文件列表
 func (h *FilesHandler) List(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.DB.Query(
-		"SELECT id, collection_id, path, display_name, file_size, mime_type, sort_order, created_at FROM files ORDER BY sort_order, created_at DESC",
+		"SELECT id, folder_id, path, display_name, file_size, mime_type, sort_order, created_at FROM files ORDER BY sort_order, created_at DESC",
 	)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "查询文件列表失败")
@@ -59,7 +59,7 @@ func (h *FilesHandler) List(w http.ResponseWriter, r *http.Request) {
 	files := make([]FileResponse, 0)
 	for rows.Next() {
 		var f FileResponse
-		if err := rows.Scan(&f.ID, &f.CollectionID, &f.Path, &f.DisplayName, &f.FileSize, &f.MimeType, &f.SortOrder, &f.CreatedAt); err != nil {
+		if err := rows.Scan(&f.ID, &f.FolderID, &f.Path, &f.DisplayName, &f.FileSize, &f.MimeType, &f.SortOrder, &f.CreatedAt); err != nil {
 			writeError(w, http.StatusInternalServerError, "读取文件数据失败")
 			return
 		}
@@ -75,9 +75,9 @@ func (h *FilesHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	var f FileResponse
 	err := h.DB.QueryRow(
-		"SELECT id, collection_id, path, display_name, file_size, mime_type, sort_order, created_at FROM files WHERE id = ?",
+		"SELECT id, folder_id, path, display_name, file_size, mime_type, sort_order, created_at FROM files WHERE id = ?",
 		id,
-	).Scan(&f.ID, &f.CollectionID, &f.Path, &f.DisplayName, &f.FileSize, &f.MimeType, &f.SortOrder, &f.CreatedAt)
+	).Scan(&f.ID, &f.FolderID, &f.Path, &f.DisplayName, &f.FileSize, &f.MimeType, &f.SortOrder, &f.CreatedAt)
 	if err == sql.ErrNoRows {
 		writeError(w, http.StatusNotFound, "文件不存在")
 		return
@@ -102,15 +102,15 @@ func (h *FilesHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "文件路径不能为空")
 		return
 	}
-	if req.CollectionID == "" {
-		writeError(w, http.StatusBadRequest, "所属集合不能为空")
+	if req.FolderID == "" {
+		writeError(w, http.StatusBadRequest, "所属文件夹不能为空")
 		return
 	}
 
 	id := uuid.New().String()
 	_, err := h.DB.Exec(
-		"INSERT INTO files (id, collection_id, path, display_name, file_size, mime_type, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)",
-		id, req.CollectionID, req.Path, req.DisplayName, req.FileSize, req.MimeType, req.SortOrder,
+		"INSERT INTO files (id, folder_id, path, display_name, file_size, mime_type, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		id, req.FolderID, req.Path, req.DisplayName, req.FileSize, req.MimeType, req.SortOrder,
 	)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "创建文件失败")
@@ -119,9 +119,9 @@ func (h *FilesHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	var f FileResponse
 	h.DB.QueryRow(
-		"SELECT id, collection_id, path, display_name, file_size, mime_type, sort_order, created_at FROM files WHERE id = ?",
+		"SELECT id, folder_id, path, display_name, file_size, mime_type, sort_order, created_at FROM files WHERE id = ?",
 		id,
-	).Scan(&f.ID, &f.CollectionID, &f.Path, &f.DisplayName, &f.FileSize, &f.MimeType, &f.SortOrder, &f.CreatedAt)
+	).Scan(&f.ID, &f.FolderID, &f.Path, &f.DisplayName, &f.FileSize, &f.MimeType, &f.SortOrder, &f.CreatedAt)
 
 	writeJSON(w, http.StatusCreated, f)
 }
@@ -146,9 +146,9 @@ func (h *FilesHandler) Update(w http.ResponseWriter, r *http.Request) {
 	// 构建动态更新 SQL
 	fields := ""
 	args := []any{}
-	if req.CollectionID != nil {
-		fields += "collection_id = ?, "
-		args = append(args, *req.CollectionID)
+	if req.FolderID != nil {
+		fields += "folder_id = ?, "
+		args = append(args, *req.FolderID)
 	}
 	if req.Path != nil {
 		fields += "path = ?, "
@@ -189,9 +189,9 @@ func (h *FilesHandler) Update(w http.ResponseWriter, r *http.Request) {
 	// 返回更新后的文件
 	var f FileResponse
 	h.DB.QueryRow(
-		"SELECT id, collection_id, path, display_name, file_size, mime_type, sort_order, created_at FROM files WHERE id = ?",
+		"SELECT id, folder_id, path, display_name, file_size, mime_type, sort_order, created_at FROM files WHERE id = ?",
 		id,
-	).Scan(&f.ID, &f.CollectionID, &f.Path, &f.DisplayName, &f.FileSize, &f.MimeType, &f.SortOrder, &f.CreatedAt)
+	).Scan(&f.ID, &f.FolderID, &f.Path, &f.DisplayName, &f.FileSize, &f.MimeType, &f.SortOrder, &f.CreatedAt)
 
 	writeJSON(w, http.StatusOK, f)
 }
