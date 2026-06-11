@@ -6,7 +6,6 @@ package handler
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"net/http"
 )
@@ -65,8 +64,7 @@ func (h *DashboardHandler) Stats(w http.ResponseWriter, r *http.Request) {
 	stats.StorageDisplay = formatSize(stats.StorageBytes)
 
 	// 返回 JSON 响应
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(stats)
+	writeJSON(w, http.StatusOK, stats)
 }
 
 // formatSize 将字节数转换为人类可读的存储大小格式。

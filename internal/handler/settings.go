@@ -15,7 +15,7 @@ type SettingsHandler struct {
 func (h *SettingsHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.DB.Query("SELECT `key`, `value` FROM settings")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeError(w, http.StatusInternalServerError, "查询设置失败")
 		return
 	}
 	defer rows.Close()
@@ -27,27 +27,25 @@ func (h *SettingsHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 		settings[k] = v
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(settings)
+	writeJSON(w, http.StatusOK, settings)
 }
 
-// PUT /api/settings — 批量更新设置项
+// Update PUT /api/settings — 批量更新设置项
 // 请求体：{"key1": "value1", "key2": "value2"}
 func (h *SettingsHandler) Update(w http.ResponseWriter, r *http.Request) {
 	var data map[string]string
 	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
-		http.Error(w, "无效的JSON", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "请求体格式无效")
 		return
 	}
 
 	for k, v := range data {
 		_, err := h.DB.Exec("INSERT INTO settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = ?", k, v, v)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			writeError(w, http.StatusInternalServerError, "保存设置失败")
 			return
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }

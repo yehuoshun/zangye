@@ -55,12 +55,21 @@ func main() {
 
 	dashboardH := &handler.DashboardHandler{DB: database}
 	settingsH := &handler.SettingsHandler{DB: database}
+	filesH := &handler.FilesHandler{DB: database}
 
 	mux := http.NewServeMux()
 
+	// 仪表盘
 	mux.HandleFunc("GET /api/dashboard/stats", dashboardH.Stats)
+	// 设置
 	mux.HandleFunc("GET /api/settings", settingsH.GetAll)
 	mux.HandleFunc("PUT /api/settings", settingsH.Update)
+	// 文件管理
+	mux.HandleFunc("GET /api/files", filesH.List)
+	mux.HandleFunc("GET /api/files/{id}", filesH.Get)
+	mux.HandleFunc("POST /api/files", filesH.Create)
+	mux.HandleFunc("PUT /api/files/{id}", filesH.Update)
+	mux.HandleFunc("DELETE /api/files/{id}", filesH.Delete)
 
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
 		if err := database.Ping(); err != nil {
