@@ -92,14 +92,9 @@ onMounted(async () => {
 
 /* 统计卡片网格：响应式布局，最小列宽 240px */
 .stats-grid {
-  display: flex;
-  flex-wrap: wrap; /* 自动换行 */
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 16px;
-}
-
-.stats-grid > * {
-  flex: 1 1 200px; /* 最小 200px，自动伸缩填满空间 */
-  min-width: 200px;
 }
 
 /* 单张统计卡片 */
