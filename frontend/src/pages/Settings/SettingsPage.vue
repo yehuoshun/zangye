@@ -42,7 +42,6 @@
       <div class="setting-item">
         <div class="setting-label">
           <span class="setting-name">数据库版本</span>
-          <span class="setting-desc">当前数据库结构版本号</span>
         </div>
         <span class="setting-value">{{ form.version }}</span>
       </div>
