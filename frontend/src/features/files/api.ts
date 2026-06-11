@@ -2,22 +2,9 @@
  * features/files/api.ts — 文件管理 API 调用
  */
 
-import type { FileItem, FileCreateRequest, FileUpdateRequest, FilePreview } from './types'
+import type { FileItem, FileCreateRequest, FileUpdateRequest } from './types'
 
 const BASE = '/api/files'
-
-/**
- * 预览文件信息（不写入数据库）
- */
-export async function previewFile(path: string): Promise<FilePreview> {
-  const res = await fetch(`${BASE}/preview`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ path }),
-  })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.json()
-}
 
 /**
  * 获取文件列表
