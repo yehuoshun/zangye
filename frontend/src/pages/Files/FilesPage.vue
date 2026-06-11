@@ -147,8 +147,8 @@
               <input v-model="fileForm.file_size" class="form-input" placeholder="0" @input="sanitizeFileSize" />
             </div>
             <div class="form-group">
-              <label>MIME 类型</label>
-              <input v-model="fileForm.mime_type" class="form-input" placeholder="如 image/png" />
+              <label>文件类型</label>
+              <input :value="fileForm.mime_type || '—'" class="form-input" placeholder="根据扩展名自动识别" readonly />
             </div>
           </div>
         </div>
@@ -441,6 +441,42 @@ function openCreateFile() {
 
 function autoFillDisplayName() {
   fileForm.display_name = filenameFromPath(fileForm.path)
+  fileForm.mime_type = mimeFromPath(fileForm.path)
+}
+
+function mimeFromPath(p: string): string | null {
+  const ext = p.split('.').pop()?.toLowerCase()
+  if (!ext) return null
+  const map: Record<string, string> = {
+    // 图片
+    png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif',
+    webp: 'image/webp', bmp: 'image/bmp', svg: 'image/svg+xml', ico: 'image/x-icon',
+    // 视频
+    mp4: 'video/mp4', mkv: 'video/x-matroska', avi: 'video/x-msvideo',
+    mov: 'video/quicktime', wmv: 'video/x-ms-wmv', flv: 'video/x-flv', webm: 'video/webm',
+    // 音频
+    mp3: 'audio/mpeg', wav: 'audio/wav', flac: 'audio/flac',
+    ogg: 'audio/ogg', aac: 'audio/aac', wma: 'audio/x-ms-wma',
+    // 文档
+    pdf: 'application/pdf', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xls: 'application/vnd.ms-excel', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ppt: 'application/vnd.ms-powerpoint', pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    // 压缩
+    zip: 'application/zip', rar: 'application/vnd.rar', '7z': 'application/x-7z-compressed',
+    tar: 'application/x-tar', gz: 'application/gzip',
+    // 文本/代码
+    txt: 'text/plain', md: 'text/markdown', json: 'application/json',
+    xml: 'application/xml', html: 'text/html', htm: 'text/html',
+    css: 'text/css', js: 'text/javascript', ts: 'text/typescript',
+    py: 'text/x-python', go: 'text/x-go', rs: 'text/x-rust',
+    java: 'text/x-java', c: 'text/x-c', cpp: 'text/x-c++',
+    sql: 'text/x-sql', yaml: 'text/yaml', yml: 'text/yaml',
+    // 可执行
+    exe: 'application/x-msdownload', dll: 'application/x-msdownload',
+    // 光盘镜像
+    iso: 'application/x-iso9660-image', cdb: 'application/octet-stream',
+  }
+  return map[ext] || null
 }
 
 function sanitizeFileSize(e: Event) {
