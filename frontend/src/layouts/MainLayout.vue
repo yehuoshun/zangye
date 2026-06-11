@@ -26,6 +26,10 @@
           <span class="nav-icon">📁</span>
           <span class="nav-label">文件管理</span>
         </router-link>
+        <router-link to="/tags" class="nav-item">
+          <span class="nav-icon">🏷️</span>
+          <span class="nav-label">标签管理</span>
+        </router-link>
         <router-link to="/settings" class="nav-item">
           <span class="nav-icon">⚙️</span>
           <span class="nav-label">设置</span>
@@ -59,6 +63,10 @@
         <router-link to="/files" class="nav-item">
           <span class="nav-icon">📁</span>
           <span class="nav-label">文件管理</span>
+        </router-link>
+        <router-link to="/tags" class="nav-item">
+          <span class="nav-icon">🏷️</span>
+          <span class="nav-label">标签管理</span>
         </router-link>
         <router-link to="/settings" class="nav-item">
           <span class="nav-icon">⚙️</span>

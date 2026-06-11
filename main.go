@@ -57,6 +57,7 @@ func main() {
 	settingsH := &handler.SettingsHandler{DB: database}
 	filesH := &handler.FilesHandler{DB: database}
 	foldersH := &handler.FoldersHandler{DB: database}
+	tagsH := &handler.TagsHandler{DB: database}
 
 	mux := http.NewServeMux()
 
@@ -78,6 +79,11 @@ func main() {
 	mux.HandleFunc("POST /api/files", filesH.Create)
 	mux.HandleFunc("PUT /api/files/{id}", filesH.Update)
 	mux.HandleFunc("DELETE /api/files/{id}", filesH.Delete)
+	// 标签管理
+	mux.HandleFunc("GET /api/tags", tagsH.List)
+	mux.HandleFunc("POST /api/tags", tagsH.Create)
+	mux.HandleFunc("PUT /api/tags/{id}", tagsH.Update)
+	mux.HandleFunc("DELETE /api/tags/{id}", tagsH.Delete)
 
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
 		if err := database.Ping(); err != nil {

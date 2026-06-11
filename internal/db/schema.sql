@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS folders (
     name       VARCHAR(255) NOT NULL,                         -- 文件夹名称
     icon       VARCHAR(10) DEFAULT '📁',                      -- 文件夹图标（emoji）
     parent_id  VARCHAR(36) DEFAULT NULL,                      -- 父文件夹 ID（NULL 表示根文件夹）
+    description TEXT DEFAULT NULL,                            -- 文件夹描述
     sort_order INT DEFAULT 0,                                 -- 排序序号（数字越小越靠前）
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,           -- 创建时间
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP  -- 更新时间（自动更新）
@@ -47,6 +48,7 @@ CREATE TABLE IF NOT EXISTS files (
     display_name    VARCHAR(512) DEFAULT NULL,                 -- 显示名称（可不同于文件名）
     file_size       BIGINT DEFAULT 0,                          -- 文件大小（字节）
     mime_type       VARCHAR(255) DEFAULT NULL,                 -- MIME 类型
+    file_mtime      TIMESTAMP NULL DEFAULT NULL,               -- 文件实际修改时间
     sort_order      INT DEFAULT 0,                             -- 排序序号
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,       -- 创建时间
     FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE CASCADE  -- 文件夹删除时级联删除文件

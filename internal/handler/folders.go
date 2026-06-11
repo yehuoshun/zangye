@@ -15,29 +15,32 @@ type FoldersHandler struct {
 
 // FolderResponse 是文件夹 API 的响应结构体。
 type FolderResponse struct {
-	ID        string  `json:"id"`
-	Name      string  `json:"name"`
-	Icon      string  `json:"icon"`
-	ParentID  *string `json:"parent_id"`
-	SortOrder int     `json:"sort_order"`
-	CreatedAt string  `json:"created_at"`
-	UpdatedAt string  `json:"updated_at"`
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Icon        string  `json:"icon"`
+	ParentID    *string `json:"parent_id"`
+	Description *string `json:"description"`
+	SortOrder   int     `json:"sort_order"`
+	CreatedAt   string  `json:"created_at"`
+	UpdatedAt   string  `json:"updated_at"`
 }
 
 // FolderCreateRequest 是创建文件夹的请求体。
 type FolderCreateRequest struct {
-	Name      string  `json:"name"`
-	Icon      string  `json:"icon"`
-	ParentID  *string `json:"parent_id"`
-	SortOrder int     `json:"sort_order"`
+	Name        string  `json:"name"`
+	Icon        string  `json:"icon"`
+	ParentID    *string `json:"parent_id"`
+	Description *string `json:"description"`
+	SortOrder   int     `json:"sort_order"`
 }
 
 // FolderUpdateRequest 是更新文件夹的请求体。
 type FolderUpdateRequest struct {
-	Name      *string `json:"name"`
-	Icon      *string `json:"icon"`
-	ParentID  *string `json:"parent_id"`
-	SortOrder *int    `json:"sort_order"`
+	Name        *string `json:"name"`
+	Icon        *string `json:"icon"`
+	ParentID    *string `json:"parent_id"`
+	Description *string `json:"description"`
+	SortOrder   *int    `json:"sort_order"`
 }
 
 // List GET /api/folders — 获取文件夹列表
@@ -49,11 +52,11 @@ func (h *FoldersHandler) List(w http.ResponseWriter, r *http.Request) {
 	var err error
 	if parentID == "" {
 		rows, err = h.DB.Query(
-			"SELECT id, name, icon, parent_id, sort_order, created_at, updated_at FROM folders WHERE parent_id IS NULL ORDER BY sort_order, name",
+			"SELECT id, name, icon, parent_id, description, sort_order, created_at, updated_at FROM folders WHERE parent_id IS NULL ORDER BY sort_order, name",
 		)
 	} else {
 		rows, err = h.DB.Query(
-			"SELECT id, name, icon, parent_id, sort_order, created_at, updated_at FROM folders WHERE parent_id = ? ORDER BY sort_order, name",
+			"SELECT id, name, icon, parent_id, description, sort_order, created_at, updated_at FROM folders WHERE parent_id = ? ORDER BY sort_order, name",
 			parentID,
 		)
 	}
@@ -66,7 +69,7 @@ func (h *FoldersHandler) List(w http.ResponseWriter, r *http.Request) {
 	folders := make([]FolderResponse, 0)
 	for rows.Next() {
 		var f FolderResponse
-		if err := rows.Scan(&f.ID, &f.Name, &f.Icon, &f.ParentID, &f.SortOrder, &f.CreatedAt, &f.UpdatedAt); err != nil {
+		if err := rows.Scan(&f.ID, &f.Name, &f.Icon, &f.ParentID, &f.Description, &f.SortOrder, &f.CreatedAt, &f.UpdatedAt); err != nil {
 			writeError(w, http.StatusInternalServerError, "读取文件夹数据失败")
 			return
 		}
@@ -82,7 +85,7 @@ func (h *FoldersHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	var f FolderResponse
 	if !scanRow(w, h.DB.QueryRow(
-		"SELECT id, name, icon, parent_id, sort_order, created_at, updated_at FROM folders WHERE id = ?",
+		"SELECT id, name, icon, parent_id, description, sort_order, created_at, updated_at FROM folders WHERE id = ?",
 		id,
 	), &f.ID, &f.Name, &f.Icon, &f.ParentID, &f.SortOrder, &f.CreatedAt, &f.UpdatedAt) {
 		writeError(w, http.StatusNotFound, "文件夹不存在")
@@ -112,8 +115,8 @@ func (h *FoldersHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	id := uuid.New().String()
 	_, err := h.DB.Exec(
-		"INSERT INTO folders (id, name, icon, parent_id, sort_order) VALUES (?, ?, ?, ?, ?)",
-		id, req.Name, icon, req.ParentID, req.SortOrder,
+		"INSERT INTO folders (id, name, icon, parent_id, description, sort_order) VALUES (?, ?, ?, ?, ?, ?)",
+		id, req.Name, icon, req.ParentID, req.Description, req.SortOrder,
 	)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "创建文件夹失败")
@@ -122,7 +125,7 @@ func (h *FoldersHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	var f FolderResponse
 	if !mustScanRow(w, h.DB.QueryRow(
-		"SELECT id, name, icon, parent_id, sort_order, created_at, updated_at FROM folders WHERE id = ?",
+		"SELECT id, name, icon, parent_id, description, sort_order, created_at, updated_at FROM folders WHERE id = ?",
 		id,
 	), &f.ID, &f.Name, &f.Icon, &f.ParentID, &f.SortOrder, &f.CreatedAt, &f.UpdatedAt) {
 		return
@@ -161,6 +164,10 @@ func (h *FoldersHandler) Update(w http.ResponseWriter, r *http.Request) {
 		fields += "parent_id = ?, "
 		args = append(args, *req.ParentID)
 	}
+	if req.Description != nil {
+		fields += "description = ?, "
+		args = append(args, *req.Description)
+	}
 	if req.SortOrder != nil {
 		fields += "sort_order = ?, "
 		args = append(args, *req.SortOrder)
@@ -182,7 +189,7 @@ func (h *FoldersHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	var f FolderResponse
 	if !mustScanRow(w, h.DB.QueryRow(
-		"SELECT id, name, icon, parent_id, sort_order, created_at, updated_at FROM folders WHERE id = ?",
+		"SELECT id, name, icon, parent_id, description, sort_order, created_at, updated_at FROM folders WHERE id = ?",
 		id,
 	), &f.ID, &f.Name, &f.Icon, &f.ParentID, &f.SortOrder, &f.CreatedAt, &f.UpdatedAt) {
 		return

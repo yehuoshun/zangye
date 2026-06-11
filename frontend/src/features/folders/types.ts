@@ -10,6 +10,7 @@ export interface FolderItem {
   name: string
   icon: string
   parent_id: string | null
+  description: string | null
   sort_order: number
   created_at: string
   updated_at: string
@@ -22,6 +23,7 @@ export interface FolderCreateRequest {
   name: string
   icon?: string
   parent_id?: string | null
+  description?: string | null
   sort_order?: number
 }
 
@@ -32,5 +34,6 @@ export interface FolderUpdateRequest {
   name?: string | null
   icon?: string | null
   parent_id?: string | null
+  description?: string | null
   sort_order?: number | null
 }

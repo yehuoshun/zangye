@@ -15,40 +15,43 @@ type FilesHandler struct {
 
 // FileResponse 是文件 API 的响应结构体。
 type FileResponse struct {
-	ID           string  `json:"id"`
-	FolderID string  `json:"folder_id"`
-	Path         string  `json:"path"`
-	DisplayName  *string `json:"display_name"`
-	FileSize     int64   `json:"file_size"`
-	MimeType     *string `json:"mime_type"`
-	SortOrder    int     `json:"sort_order"`
-	CreatedAt    string  `json:"created_at"`
+	ID          string  `json:"id"`
+	FolderID    string  `json:"folder_id"`
+	Path        string  `json:"path"`
+	DisplayName *string `json:"display_name"`
+	FileSize    int64   `json:"file_size"`
+	MimeType    *string `json:"mime_type"`
+	FileMtime   *string `json:"file_mtime"`
+	SortOrder   int     `json:"sort_order"`
+	CreatedAt   string  `json:"created_at"`
 }
 
 // FileCreateRequest 是创建文件的请求体。
 type FileCreateRequest struct {
-	FolderID string  `json:"folder_id"`
-	Path         string  `json:"path"`
-	DisplayName  *string `json:"display_name"`
-	FileSize     int64   `json:"file_size"`
-	MimeType     *string `json:"mime_type"`
-	SortOrder    int     `json:"sort_order"`
+	FolderID    string  `json:"folder_id"`
+	Path        string  `json:"path"`
+	DisplayName *string `json:"display_name"`
+	FileSize    int64   `json:"file_size"`
+	MimeType    *string `json:"mime_type"`
+	FileMtime   *string `json:"file_mtime"`
+	SortOrder   int     `json:"sort_order"`
 }
 
 // FileUpdateRequest 是更新文件的请求体。
 type FileUpdateRequest struct {
-	FolderID *string `json:"folder_id"`
-	Path         *string `json:"path"`
-	DisplayName  *string `json:"display_name"`
-	FileSize     *int64  `json:"file_size"`
-	MimeType     *string `json:"mime_type"`
-	SortOrder    *int    `json:"sort_order"`
+	FolderID    *string `json:"folder_id"`
+	Path        *string `json:"path"`
+	DisplayName *string `json:"display_name"`
+	FileSize    *int64  `json:"file_size"`
+	MimeType    *string `json:"mime_type"`
+	FileMtime   *string `json:"file_mtime"`
+	SortOrder   *int    `json:"sort_order"`
 }
 
 // List GET /api/files — 获取文件列表
 func (h *FilesHandler) List(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.DB.Query(
-		"SELECT id, folder_id, path, display_name, file_size, mime_type, sort_order, created_at FROM files ORDER BY sort_order, created_at DESC",
+		"SELECT id, folder_id, path, display_name, file_size, mime_type, file_mtime, sort_order, created_at FROM files ORDER BY sort_order, created_at DESC",
 	)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "查询文件列表失败")
@@ -59,7 +62,7 @@ func (h *FilesHandler) List(w http.ResponseWriter, r *http.Request) {
 	files := make([]FileResponse, 0)
 	for rows.Next() {
 		var f FileResponse
-		if err := rows.Scan(&f.ID, &f.FolderID, &f.Path, &f.DisplayName, &f.FileSize, &f.MimeType, &f.SortOrder, &f.CreatedAt); err != nil {
+		if err := rows.Scan(&f.ID, &f.FolderID, &f.Path, &f.DisplayName, &f.FileSize, &f.MimeType, &f.FileMtime, &f.SortOrder, &f.CreatedAt); err != nil {
 			writeError(w, http.StatusInternalServerError, "读取文件数据失败")
 			return
 		}
@@ -75,7 +78,7 @@ func (h *FilesHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	var f FileResponse
 	if !scanRow(w, h.DB.QueryRow(
-		"SELECT id, folder_id, path, display_name, file_size, mime_type, sort_order, created_at FROM files WHERE id = ?",
+		"SELECT id, folder_id, path, display_name, file_size, mime_type, file_mtime, sort_order, created_at FROM files WHERE id = ?",
 		id,
 	), &f.ID, &f.FolderID, &f.Path, &f.DisplayName, &f.FileSize, &f.MimeType, &f.SortOrder, &f.CreatedAt) {
 		writeError(w, http.StatusNotFound, "文件不存在")
@@ -104,8 +107,8 @@ func (h *FilesHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	id := uuid.New().String()
 	_, err := h.DB.Exec(
-		"INSERT INTO files (id, folder_id, path, display_name, file_size, mime_type, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)",
-		id, req.FolderID, req.Path, req.DisplayName, req.FileSize, req.MimeType, req.SortOrder,
+		"INSERT INTO files (id, folder_id, path, display_name, file_size, mime_type, file_mtime, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+		id, req.FolderID, req.Path, req.DisplayName, req.FileSize, req.MimeType, req.FileMtime, req.SortOrder,
 	)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "创建文件失败")
@@ -114,7 +117,7 @@ func (h *FilesHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	var f FileResponse
 	if !mustScanRow(w, h.DB.QueryRow(
-		"SELECT id, folder_id, path, display_name, file_size, mime_type, sort_order, created_at FROM files WHERE id = ?",
+		"SELECT id, folder_id, path, display_name, file_size, mime_type, file_mtime, sort_order, created_at FROM files WHERE id = ?",
 		id,
 	), &f.ID, &f.FolderID, &f.Path, &f.DisplayName, &f.FileSize, &f.MimeType, &f.SortOrder, &f.CreatedAt) {
 		return
@@ -163,6 +166,10 @@ func (h *FilesHandler) Update(w http.ResponseWriter, r *http.Request) {
 		fields += "mime_type = ?, "
 		args = append(args, *req.MimeType)
 	}
+	if req.FileMtime != nil {
+		fields += "file_mtime = ?, "
+		args = append(args, *req.FileMtime)
+	}
 	if req.SortOrder != nil {
 		fields += "sort_order = ?, "
 		args = append(args, *req.SortOrder)
@@ -186,7 +193,7 @@ func (h *FilesHandler) Update(w http.ResponseWriter, r *http.Request) {
 	// 返回更新后的文件
 	var f FileResponse
 	if !mustScanRow(w, h.DB.QueryRow(
-		"SELECT id, folder_id, path, display_name, file_size, mime_type, sort_order, created_at FROM files WHERE id = ?",
+		"SELECT id, folder_id, path, display_name, file_size, mime_type, file_mtime, sort_order, created_at FROM files WHERE id = ?",
 		id,
 	), &f.ID, &f.FolderID, &f.Path, &f.DisplayName, &f.FileSize, &f.MimeType, &f.SortOrder, &f.CreatedAt) {
 		return

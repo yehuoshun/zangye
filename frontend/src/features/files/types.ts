@@ -13,6 +13,7 @@ export interface FileItem {
   display_name: string | null
   file_size: number
   mime_type: string | null
+  file_mtime: string | null
   sort_order: number
   created_at: string
 }
@@ -26,6 +27,7 @@ export interface FileCreateRequest {
   display_name?: string | null
   file_size?: number
   mime_type?: string | null
+  file_mtime?: string | null
   sort_order?: number
 }
 
@@ -38,5 +40,6 @@ export interface FileUpdateRequest {
   display_name?: string | null
   file_size?: number | null
   mime_type?: string | null
+  file_mtime?: string | null
   sort_order?: number | null
 }
