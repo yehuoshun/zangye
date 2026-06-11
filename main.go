@@ -139,12 +139,18 @@ type spaHandler struct {
 
 // ServeHTTP 实现 http.Handler 接口。
 // 逻辑：
-//  1. 尝试打开请求路径对应的静态文件，如果存在则直接返回
+//  1. 尝试打开请求路径对应的静态文件（去掉开头的 /），如果存在则直接返回
 //  2. 如果不存在（如 /dashboard 这样的前端路由），回退到 index.html
 //     让 Vue Router 接管路由解析
 func (s *spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// 去掉路径开头的 /，因为 embed FS 内部路径不带 /
+	path := r.URL.Path
+	if len(path) > 0 && path[0] == '/' {
+		path = path[1:]
+	}
+
 	// 尝试打开请求路径对应的文件
-	f, err := s.staticFS.Open(r.URL.Path)
+	f, err := s.staticFS.Open(path)
 	if err == nil {
 		// 文件存在，使用标准文件服务器返回
 		f.Close()
