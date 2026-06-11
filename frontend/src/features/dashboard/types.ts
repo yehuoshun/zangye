@@ -12,6 +12,7 @@
  * 字段名使用 snake_case 以匹配后端 JSON 序列化。
  */
 export interface DashboardStats {
+  folder_count: number      // 文件夹总数
   file_count: number        // 文件总数
   image_count: number       // 图片数
   video_count: number       // 视频数

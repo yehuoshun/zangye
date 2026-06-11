@@ -20,6 +20,8 @@ type DashboardHandler struct {
 // DashboardStats 是仪表盘统计数据的响应结构体。
 // 通过 json tag 映射到 JSON 字段名（snake_case）。
 type DashboardStats struct {
+	// 文件夹总数
+	FolderCount int64 `json:"folder_count"`
 	// 文件总数
 	FileCount int64 `json:"file_count"`
 	// 图片数
@@ -48,6 +50,10 @@ type DashboardStats struct {
 func (h *DashboardHandler) Stats(w http.ResponseWriter, r *http.Request) {
 	var stats DashboardStats
 
+	// 查询文件夹总数
+	if !scanRow(w, h.DB.QueryRow("SELECT COUNT(*) FROM folders"), &stats.FolderCount) {
+		return
+	}
 	// 查询文件总数
 	if !scanRow(w, h.DB.QueryRow("SELECT COUNT(*) FROM files"), &stats.FileCount) {
 		return
