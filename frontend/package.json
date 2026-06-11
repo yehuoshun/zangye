@@ -8,13 +8,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "vue": "^3.5.34",
+    "vue": "^3.5.37",
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^5.2.4",
-    "typescript": "^5.9.3",
-    "vite": "^5.4.21",
-    "vue-tsc": "^2.2.12"
+    "@vitejs/plugin-vue": "^6.0.7",
+    "typescript": "~5.9.3",
+    "vite": "^6.4.3",
+    "vue-tsc": "^3.3.4"
   }
 }
