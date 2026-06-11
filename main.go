@@ -21,7 +21,6 @@ package main
 import (
 	"context"
 	"embed"
-	"io"
 	"io/fs"
 	"log"
 	"net/http"
@@ -35,44 +34,34 @@ import (
 )
 
 //go:embed frontend/dist
-// frontendFS 嵌入前端构建产物（dist 目录），编译后无需外部文件。
-// 前端通过 npm run build 构建到 frontend/dist 后，
-// Go 编译器会将整个目录打包进二进制文件。
-var frontendFS embed.FS
+// frontendEmbed 嵌入前端构建产物，作为后备。
+// 生产模式：go build 打包时会将 dist 嵌入二进制。
+// 开发模式：如果磁盘上存在 frontend/dist/，优先从磁盘读取。
+var frontendEmbed embed.FS
 
 func main() {
 	// ========================================
 	// 1. 初始化数据库连接
 	// ========================================
-	// 使用默认配置连接 MySQL，自动执行建表语句。
-	// 如果数据库无法连接，程序将直接退出（Fatal）。
 	database, err := db.New(db.DefaultConfig())
 	if err != nil {
 		log.Fatalf("数据库初始化失败: %v", err)
 	}
-	defer database.Close() // 确保程序退出时关闭数据库连接
+	defer database.Close()
 
 	// ========================================
 	// 2. 注册 HTTP 路由
 	// ========================================
 
-	// 创建仪表盘处理器，注入数据库连接
 	dashboardH := &handler.DashboardHandler{DB: database}
-	// 创建设置处理器
 	settingsH := &handler.SettingsHandler{DB: database}
 
 	mux := http.NewServeMux()
 
-	// GET /api/dashboard/stats — 获取仪表盘统计数据
 	mux.HandleFunc("GET /api/dashboard/stats", dashboardH.Stats)
-
-	// GET /api/settings — 获取所有设置项
 	mux.HandleFunc("GET /api/settings", settingsH.GetAll)
-	// PUT /api/settings — 批量更新设置项
 	mux.HandleFunc("PUT /api/settings", settingsH.Update)
 
-	// GET /api/health — 健康检查端点，返回服务状态
-	// 会实际 ping 数据库以确认连接正常
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
 		if err := database.Ping(); err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
@@ -84,96 +73,91 @@ func main() {
 	})
 
 	// ========================================
-	// 3. 挂载前端 SPA（如果已编译）
+	// 3. 挂载前端 SPA
 	// ========================================
-	// 从嵌入的 frontend/dist 中提取前端文件系统。
-	// 如果前端未编译（dist 不存在），则仅提供 API 服务。
-	frontendSub, err := fs.Sub(frontendFS, "frontend/dist")
-	if err != nil {
-		log.Printf("前端未嵌入，仅 API 可用: %v", err)
+	// 优先使用磁盘上的 frontend/dist/（开发模式），
+	// 不存在时回退到 embed（生产模式）。
+	var staticFS fs.FS
+	if _, err := os.Stat("frontend/dist"); err == nil {
+		log.Println("📁 使用磁盘前端文件: frontend/dist/")
+		staticFS = os.DirFS("frontend/dist")
+	} else if sub, err := fs.Sub(frontendEmbed, "frontend/dist"); err == nil {
+		log.Println("📦 使用嵌入前端文件")
+		staticFS = sub
 	} else {
-		// SPA 处理器：所有非 API 请求回退到 index.html
-		// 支持 Vue Router 的 history 模式
-		mux.Handle("/", &spaHandler{staticFS: frontendSub})
+		log.Println("⚠️  前端未编译，仅 API 可用")
+	}
+
+	if staticFS != nil {
+		mux.Handle("/", &spaHandler{staticFS: staticFS})
 	}
 
 	// ========================================
 	// 4. 配置并启动 HTTP 服务器
 	// ========================================
 
-	// 监听地址：默认 127.0.0.1:27138，可通过 ZANGYE_ADDR 环境变量覆盖
 	addr := "127.0.0.1:27138"
 	if env := os.Getenv("ZANGYE_ADDR"); env != "" {
 		addr = env
 	}
 
-	// 配置服务器超时参数，防止慢客户端占用资源
 	server := &http.Server{
 		Addr:         addr,
 		Handler:      mux,
-		ReadTimeout:  10 * time.Second, // 读取请求超时
-		WriteTimeout: 10 * time.Second, // 写入响应超时
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
 	}
 
-	// ========================================
-	// 5. 优雅关闭
-	// ========================================
-	// 监听 SIGINT（Ctrl+C）和 SIGTERM 信号，
-	// 收到信号后优雅关闭服务器，等待当前请求处理完毕。
 	go func() {
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-		<-sigCh                       // 阻塞等待信号
+		<-sigCh
 		log.Println("正在关闭…")
-		server.Shutdown(context.Background()) // 优雅关闭
+		server.Shutdown(context.Background())
 	}()
 
 	log.Printf("🦞 藏叶 启动 → http://%s", addr)
-	// ListenAndServe 在 Shutdown 后返回 ErrServerClosed，
-	// 这是正常关闭，不应视为错误
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
 		log.Fatalf("服务启动失败: %v", err)
 	}
 }
 
-// spaHandler 是 SPA（单页应用）回退处理器。
-// 对于静态文件请求，直接返回对应文件；
-// 对于不存在的路径（如 Vue Router 路由），回退到 index.html。
-// 这确保了前端路由刷新后不会出现 404。
+// spaHandler 是 SPA 回退处理器。
 type spaHandler struct {
-	staticFS fs.FS // 嵌入的前端文件系统
+	staticFS fs.FS
 }
 
 // ServeHTTP 实现 http.Handler 接口。
-// 逻辑：
-//  1. 尝试打开请求路径对应的静态文件（去掉开头的 /），如果存在则直接返回
-//  2. 如果不存在（如 /dashboard 这样的前端路由），回退到 index.html
-//     让 Vue Router 接管路由解析
 func (s *spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// 去掉路径开头的 /，因为 embed FS 内部路径不带 /
 	path := r.URL.Path
 	if len(path) > 0 && path[0] == '/' {
 		path = path[1:]
 	}
+	if path == "" {
+		path = "index.html"
+	}
 
-	// 尝试打开请求路径对应的文件
-	f, err := s.staticFS.Open(path)
+	// 尝试读取文件
+	data, err := fs.ReadFile(s.staticFS, path)
 	if err == nil {
-		// 文件存在，使用标准文件服务器返回
-		f.Close()
-		http.FileServer(http.FS(s.staticFS)).ServeHTTP(w, r)
+		// 根据扩展名设置 MIME 类型
+		if len(path) >= 3 && path[len(path)-3:] == ".js" {
+			w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+		} else if len(path) >= 4 && path[len(path)-4:] == ".css" {
+			w.Header().Set("Content-Type", "text/css; charset=utf-8")
+		} else if len(path) >= 5 && path[len(path)-5:] == ".html" {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		}
+		w.Write(data)
 		return
 	}
 
-	// 文件不存在，回退到 index.html（SPA 入口）
-	index, err := s.staticFS.Open("index.html")
+	// 回退到 index.html（SPA 路由）
+	index, err := fs.ReadFile(s.staticFS, "index.html")
 	if err != nil {
 		http.Error(w, "前端未编译", http.StatusNotFound)
 		return
 	}
-	defer index.Close()
-
-	// 使用 ServeContent 返回 index.html，支持 Range 请求和缓存
-	stat, _ := index.Stat()
-	http.ServeContent(w, r, "index.html", stat.ModTime(), index.(io.ReadSeeker))
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write(index)
 }
