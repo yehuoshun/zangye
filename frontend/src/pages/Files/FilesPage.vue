@@ -1,12 +1,11 @@
 <!--
-  FilesPage.vue — 文件管理页面
+  FilesPage.vue — 文件管理页面（文件 + 文件夹浏览）
 
-  功能：
-    - 文件列表展示（表格形式）
-    - 新建文件（弹窗表单）
-    - 编辑文件（弹窗表单）
-    - 删除文件（确认后删除）
-    - 文件大小格式化显示
+  支持：
+    - 文件夹网格展示 + 点击进入子目录
+    - 面包屑导航 + 点击跳回
+    - 新建文件夹 / 新建文件
+    - 文件表格 + 编辑/删除
 -->
 
 <template>
@@ -14,25 +13,42 @@
     <!-- 面包屑导航 -->
     <div class="breadcrumb">
       <span class="breadcrumb-item" @click="goRoot">📂 根目录</span>
-      <template v-for="(seg, i) in currentPathSegments" :key="i">
+      <template v-for="(seg, i) in breadcrumbs" :key="i">
         <span class="breadcrumb-sep">›</span>
-        <span class="breadcrumb-item" :class="{ active: i === currentPathSegments.length - 1 }">
-          {{ seg }}
-        </span>
+        <span
+          class="breadcrumb-item"
+          :class="{ active: i === breadcrumbs.length - 1 }"
+          @click="goBreadcrumb(i)"
+        >{{ seg.name }}</span>
       </template>
     </div>
 
     <!-- 操作栏 -->
-
-    <!-- 操作栏 -->
     <div class="page-header">
-      <h1 class="page-title">文件管理</h1>
-      <button class="btn btn-primary" @click="openCreate">+ 新建文件</button>
+      <h1 class="page-title">{{ currentFolder ? currentFolder.name : '文件管理' }}</h1>
+      <div class="header-actions">
+        <button class="btn" @click="openCreateFolder">+ 新建文件夹</button>
+        <button class="btn btn-primary" @click="openCreateFile">+ 新建文件</button>
+      </div>
+    </div>
+
+    <!-- 文件夹网格 -->
+    <div class="folder-section" v-if="folders.length">
+      <div class="folder-grid">
+        <div class="folder-card" v-for="f in folders" :key="f.id" @dblclick="enterFolder(f)">
+          <span class="folder-icon">{{ f.icon }}</span>
+          <span class="folder-name">{{ f.name }}</span>
+          <div class="folder-actions">
+            <button class="btn-icon" title="重命名" @click.stop="openEditFolder(f)">✏️</button>
+            <button class="btn-icon" title="删除" @click.stop="confirmDeleteFolder(f)">🗑️</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 文件表格 -->
-    <div class="table-card">
-      <table class="data-table" v-if="files.length">
+    <div class="table-card" v-if="files.length">
+      <table class="data-table">
         <thead>
           <tr>
             <th>文件</th>
@@ -60,53 +76,73 @@
             </td>
             <td class="cell-date">{{ formatDate(f.created_at) }}</td>
             <td class="cell-actions">
-              <button class="btn btn-sm" @click="openEdit(f)">编辑</button>
-              <button class="btn btn-sm btn-danger" @click="confirmDelete(f)">删除</button>
+              <button class="btn btn-sm" @click="openEditFile(f)">编辑</button>
+              <button class="btn btn-sm btn-danger" @click="confirmDeleteFile(f)">删除</button>
             </td>
           </tr>
         </tbody>
       </table>
-      <div class="empty-state" v-else>
-        <span class="empty-icon">📂</span>
-        <span class="empty-text">暂无文件，点击右上角「新建文件」添加</span>
+    </div>
+
+    <!-- 空状态 -->
+    <div class="empty-state" v-if="!folders.length && !files.length">
+      <span class="empty-icon">📂</span>
+      <span class="empty-text">此目录为空，点击上方按钮新建文件夹或文件</span>
+    </div>
+
+    <!-- 文件夹弹窗（新建/编辑） -->
+    <div class="modal-overlay" v-if="showFolderModal" @click.self="closeFolderModal">
+      <div class="modal modal-sm">
+        <div class="modal-header">
+          <h2>{{ editingFolder ? '重命名文件夹' : '新建文件夹' }}</h2>
+          <button class="btn-close" @click="closeFolderModal">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>文件夹名称 <span class="required">*</span></label>
+            <input v-model="folderForm.name" class="form-input" placeholder="输入文件夹名称" @keyup.enter="saveFolder" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn" @click="closeFolderModal">取消</button>
+          <button class="btn btn-primary" @click="saveFolder" :disabled="!folderForm.name">
+            保存
+          </button>
+        </div>
       </div>
     </div>
 
-    <!-- 新建/编辑弹窗 -->
-    <div class="modal-overlay" v-if="showModal" @click.self="closeModal">
+    <!-- 文件弹窗（新建/编辑） -->
+    <div class="modal-overlay" v-if="showFileModal" @click.self="closeFileModal">
       <div class="modal">
         <div class="modal-header">
-          <h2>{{ isEditing ? '编辑文件' : '新建文件' }}</h2>
-          <button class="btn-close" @click="closeModal">✕</button>
+          <h2>{{ editingFile ? '编辑文件' : '新建文件' }}</h2>
+          <button class="btn-close" @click="closeFileModal">✕</button>
         </div>
         <div class="modal-body">
           <div class="form-group">
             <label>文件路径 <span class="required">*</span></label>
-            <input v-model="form.path" class="form-input" placeholder="E:\Game\YGO\MDPro3\Expansions\1.cdb" />
+            <input v-model="fileForm.path" class="form-input" placeholder="E:\Game\YGO\MDPro3\Expansions\1.cdb" />
           </div>
           <div class="form-group">
             <label>显示名称</label>
-            <input v-model="form.display_name" class="form-input" placeholder="可选，不填则使用文件名" />
-          </div>
-          <div class="form-group">
-            <label>所属文件夹 ID <span class="required">*</span></label>
-            <input v-model="form.folder_id" class="form-input" placeholder="文件夹 UUID" />
+            <input v-model="fileForm.display_name" class="form-input" placeholder="可选" />
           </div>
           <div class="form-row">
             <div class="form-group">
               <label>文件大小（字节）</label>
-              <input v-model.number="form.file_size" type="number" class="form-input" placeholder="0" />
+              <input v-model.number="fileForm.file_size" type="number" class="form-input" placeholder="0" />
             </div>
             <div class="form-group">
               <label>MIME 类型</label>
-              <input v-model="form.mime_type" class="form-input" placeholder="如 image/png" />
+              <input v-model="fileForm.mime_type" class="form-input" placeholder="如 image/png" />
             </div>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn" @click="closeModal">取消</button>
-          <button class="btn btn-primary" @click="save" :disabled="saving">
-            {{ saving ? '保存中…' : '保存' }}
+          <button class="btn" @click="closeFileModal">取消</button>
+          <button class="btn btn-primary" @click="saveFile" :disabled="!fileForm.path">
+            保存
           </button>
         </div>
       </div>
@@ -119,11 +155,11 @@
           <h2>确认删除</h2>
         </div>
         <div class="modal-body">
-          <p>确定要删除文件「{{ deleteTarget?.display_name || deleteTarget?.path }}」吗？此操作不可撤销。</p>
+          <p>{{ deleteMessage }}</p>
         </div>
         <div class="modal-footer">
           <button class="btn" @click="showDeleteConfirm = false">取消</button>
-          <button class="btn btn-danger" @click="doDelete" :disabled="saving">删除</button>
+          <button class="btn btn-danger" @click="doDelete">删除</button>
         </div>
       </div>
     </div>
@@ -133,19 +169,28 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import type { FileItem, FileCreateRequest, FileUpdateRequest } from '@/features/files/types'
+import type { FolderItem, FolderCreateRequest, FolderUpdateRequest } from '@/features/folders/types'
 import { fetchFiles, createFile, updateFile, deleteFile } from '@/features/files/api'
+import { fetchFolders, createFolder, updateFolder, deleteFolder } from '@/features/folders/api'
 
-// 文件列表
+// 导航状态
+const currentFolderId = ref<string | null>(null)
+const currentFolder = ref<FolderItem | null>(null)
+const breadcrumbs = ref<{ id: string; name: string }[]>([])
+
+// 数据
+const folders = ref<FolderItem[]>([])
 const files = ref<FileItem[]>([])
 
-// 弹窗状态
-const showModal = ref(false)
-const isEditing = ref(false)
-const editingId = ref('')
-const saving = ref(false)
+// 文件夹弹窗
+const showFolderModal = ref(false)
+const editingFolder = ref<FolderItem | null>(null)
+const folderForm = reactive({ name: '' })
 
-// 表单
-const form = reactive<FileCreateRequest>({
+// 文件弹窗
+const showFileModal = ref(false)
+const editingFile = ref<FileItem | null>(null)
+const fileForm = reactive<FileCreateRequest>({
   folder_id: '',
   path: '',
   display_name: null,
@@ -155,103 +200,176 @@ const form = reactive<FileCreateRequest>({
 
 // 删除确认
 const showDeleteConfirm = ref(false)
-const deleteTarget = ref<FileItem | null>(null)
+const deleteMessage = ref('')
+const deleteType = ref<'file' | 'folder'>('file')
+const deleteTargetId = ref('')
 
-// 加载文件列表
-onMounted(loadFiles)
+onMounted(loadData)
+
+async function loadData() {
+  await Promise.all([loadFolders(), loadFiles()])
+}
+
+async function loadFolders() {
+  try {
+    folders.value = await fetchFolders(currentFolderId.value || undefined)
+  } catch (e) {
+    console.error('加载文件夹失败', e)
+  }
+}
 
 async function loadFiles() {
   try {
+    // TODO: 等 files API 支持 folder_id 过滤后改这里
     files.value = await fetchFiles()
   } catch (e) {
-    console.error('加载文件列表失败', e)
+    console.error('加载文件失败', e)
   }
 }
 
-// 新建
-function openCreate() {
-  isEditing.value = false
-  editingId.value = ''
-  form.folder_id = ''
-  form.path = ''
-  form.display_name = null
-  form.file_size = 0
-  form.mime_type = null
-  showModal.value = true
+// ===== 文件夹导航 =====
+
+function goRoot() {
+  currentFolderId.value = null
+  currentFolder.value = null
+  breadcrumbs.value = []
+  loadData()
 }
 
-// 编辑
-function openEdit(f: FileItem) {
-  isEditing.value = true
-  editingId.value = f.id
-  form.folder_id = f.folder_id
-  form.path = f.path
-  form.display_name = f.display_name
-  form.file_size = f.file_size
-  form.mime_type = f.mime_type
-  showModal.value = true
+function enterFolder(f: FolderItem) {
+  currentFolderId.value = f.id
+  currentFolder.value = f
+  breadcrumbs.value.push({ id: f.id, name: f.name })
+  loadData()
 }
 
-// 关闭弹窗
-function closeModal() {
-  showModal.value = false
+function goBreadcrumb(i: number) {
+  if (i === breadcrumbs.value.length - 1) return
+  breadcrumbs.value = breadcrumbs.value.slice(0, i + 1)
+  const last = breadcrumbs.value[i]
+  currentFolderId.value = last.id
+  currentFolder.value = { id: last.id, name: last.name } as FolderItem
+  loadData()
 }
 
-// 保存
-async function save() {
-  if (!form.path || !form.folder_id) return
-  saving.value = true
+// ===== 文件夹操作 =====
+
+function openCreateFolder() {
+  editingFolder.value = null
+  folderForm.name = ''
+  showFolderModal.value = true
+}
+
+function openEditFolder(f: FolderItem) {
+  editingFolder.value = f
+  folderForm.name = f.name
+  showFolderModal.value = true
+}
+
+function closeFolderModal() {
+  showFolderModal.value = false
+}
+
+async function saveFolder() {
+  if (!folderForm.name) return
   try {
-    if (isEditing.value) {
-      const data: FileUpdateRequest = {
-        folder_id: form.folder_id || null,
-        path: form.path || null,
-        display_name: form.display_name || null,
-        file_size: form.file_size || null,
-        mime_type: form.mime_type || null,
-      }
-      await updateFile(editingId.value, data)
+    if (editingFolder.value) {
+      await updateFolder(editingFolder.value.id, { name: folderForm.name })
     } else {
-      await createFile({
-        folder_id: form.folder_id,
-        path: form.path,
-        display_name: form.display_name || null,
-        file_size: form.file_size,
-        mime_type: form.mime_type || null,
+      await createFolder({
+        name: folderForm.name,
+        parent_id: currentFolderId.value || null,
       })
     }
-    showModal.value = false
-    await loadFiles()
+    showFolderModal.value = false
+    await loadFolders()
   } catch (e) {
-    console.error('保存失败', e)
-  } finally {
-    saving.value = false
+    console.error('保存文件夹失败', e)
   }
 }
 
-// 删除确认
-function confirmDelete(f: FileItem) {
-  deleteTarget.value = f
+function confirmDeleteFolder(f: FolderItem) {
+  deleteType.value = 'folder'
+  deleteTargetId.value = f.id
+  deleteMessage.value = `确定要删除文件夹「${f.name}」吗？其中的文件和子文件夹也会被删除，此操作不可撤销。`
   showDeleteConfirm.value = true
 }
 
-// 执行删除
-async function doDelete() {
-  if (!deleteTarget.value) return
-  saving.value = true
+// ===== 文件操作 =====
+
+function openCreateFile() {
+  editingFile.value = null
+  fileForm.folder_id = currentFolderId.value || ''
+  fileForm.path = ''
+  fileForm.display_name = null
+  fileForm.file_size = 0
+  fileForm.mime_type = null
+  showFileModal.value = true
+}
+
+function openEditFile(f: FileItem) {
+  editingFile.value = f
+  fileForm.folder_id = f.folder_id
+  fileForm.path = f.path
+  fileForm.display_name = f.display_name
+  fileForm.file_size = f.file_size
+  fileForm.mime_type = f.mime_type
+  showFileModal.value = true
+}
+
+function closeFileModal() {
+  showFileModal.value = false
+}
+
+async function saveFile() {
+  if (!fileForm.path) return
   try {
-    await deleteFile(deleteTarget.value.id)
-    showDeleteConfirm.value = false
-    deleteTarget.value = null
+    if (editingFile.value) {
+      const data: FileUpdateRequest = {
+        folder_id: fileForm.folder_id || null,
+        path: fileForm.path || null,
+        display_name: fileForm.display_name || null,
+        file_size: fileForm.file_size || null,
+        mime_type: fileForm.mime_type || null,
+      }
+      await updateFile(editingFile.value.id, data)
+    } else {
+      await createFile(fileForm)
+    }
+    showFileModal.value = false
     await loadFiles()
   } catch (e) {
-    console.error('删除失败', e)
-  } finally {
-    saving.value = false
+    console.error('保存文件失败', e)
   }
 }
 
-// 格式化文件大小
+function confirmDeleteFile(f: FileItem) {
+  deleteType.value = 'file'
+  deleteTargetId.value = f.id
+  deleteMessage.value = `确定要删除文件「${f.display_name || f.path}」吗？此操作不可撤销。`
+  showDeleteConfirm.value = true
+}
+
+// ===== 删除执行 =====
+
+async function doDelete() {
+  try {
+    if (deleteType.value === 'folder') {
+      await deleteFolder(deleteTargetId.value)
+      showDeleteConfirm.value = false
+      await loadFolders()
+    } else {
+      await deleteFile(deleteTargetId.value)
+      showDeleteConfirm.value = false
+      await loadFiles()
+    }
+  } catch (e) {
+    console.error('删除失败', e)
+  }
+}
+
+// ===== 工具函数 =====
+
 function formatFileSize(bytes: number): string {
   if (bytes === 0) return '—'
   const units = ['B', 'KB', 'MB', 'GB', 'TB']
@@ -264,32 +382,21 @@ function formatFileSize(bytes: number): string {
   return size.toFixed(i === 0 ? 0 : 1) + ' ' + units[i]
 }
 
-// 格式化日期
 function formatDate(ts: string): string {
   const d = new Date(ts)
   return d.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
 }
 
-// 从路径提取文件名
 function filenameFromPath(p: string): string {
   const normalized = p.replace(/\\/g, '/')
   return normalized.split('/').pop() || p
 }
 
-// 拆分路径为面包屑段（不含文件名）
 function pathSegments(p: string): string[] {
   const normalized = p.replace(/\\/g, '/')
   const parts = normalized.split('/')
-  // 去掉最后的文件名
   parts.pop()
   return parts.filter(Boolean)
-}
-
-// 当前导航面包屑（根目录为空）
-const currentPathSegments = ref<string[]>([])
-
-function goRoot() {
-  currentPathSegments.value = []
 }
 </script>
 
@@ -329,6 +436,53 @@ function goRoot() {
   margin-bottom: 24px;
 }
 .page-title { font-size: 24px; font-weight: 600; }
+.header-actions { display: flex; gap: 8px; }
+
+/* 文件夹网格 */
+.folder-section { margin-bottom: 20px; }
+.folder-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+.folder-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all .15s;
+  position: relative;
+}
+.folder-card:hover { border-color: var(--accent); background: var(--bg-tertiary); }
+.folder-icon { font-size: 24px; flex-shrink: 0; }
+.folder-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.folder-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity .15s;
+}
+.folder-card:hover .folder-actions { opacity: 1; }
+.btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px;
+  border-radius: 4px;
+}
+.btn-icon:hover { background: var(--bg-primary); }
 
 /* 表格卡片 */
 .table-card {
@@ -337,12 +491,7 @@ function goRoot() {
   border-radius: 12px;
   overflow: hidden;
 }
-
-/* 表格 */
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-}
+.data-table { width: 100%; border-collapse: collapse; }
 .data-table th {
   text-align: left;
   padding: 12px 16px;
@@ -368,13 +517,11 @@ function goRoot() {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0;
   font-size: 12px;
   color: var(--text-muted);
 }
 .crumb-sep { margin: 0 4px; color: var(--text-muted); }
 .crumb-text { white-space: nowrap; }
-.crumb-text:hover { color: var(--accent); }
 
 .cell-date { white-space: nowrap; color: var(--text-muted); font-size: 13px; }
 .cell-actions { white-space: nowrap; display: flex; gap: 8px; }
@@ -416,22 +563,11 @@ function goRoot() {
 }
 .btn:hover { background: var(--bg-tertiary); }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
-
-.btn-primary {
-  background: var(--accent);
-  color: var(--accent-text);
-  border-color: var(--accent);
-}
+.btn-primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 .btn-primary:hover { opacity: .9; }
-
-.btn-danger {
-  color: #ef4444;
-  border-color: #ef4444;
-}
+.btn-danger { color: #ef4444; border-color: #ef4444; }
 .btn-danger:hover { background: #ef4444; color: #fff; }
-
 .btn-sm { padding: 4px 10px; font-size: 13px; }
-
 .btn-close {
   background: none;
   border: none;
@@ -461,7 +597,6 @@ function goRoot() {
   overflow: auto;
 }
 .modal-sm { width: 400px; }
-
 .modal-header {
   display: flex;
   align-items: center;
@@ -469,9 +604,7 @@ function goRoot() {
   padding: 20px 24px 0;
 }
 .modal-header h2 { font-size: 18px; font-weight: 600; }
-
 .modal-body { padding: 20px 24px; }
-
 .modal-footer {
   display: flex;
   justify-content: flex-end;
@@ -480,19 +613,9 @@ function goRoot() {
 }
 
 /* 表单 */
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 16px;
-}
-.form-group label {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
+.form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.form-group label { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
 .required { color: #ef4444; }
-
 .form-input {
   padding: 8px 12px;
   border: 1px solid var(--border-color);
@@ -504,12 +627,6 @@ function goRoot() {
 }
 .form-input:focus { border-color: var(--accent); }
 .form-input::placeholder { color: var(--text-muted); }
-
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .text-muted { color: var(--text-muted); }
 </style>
