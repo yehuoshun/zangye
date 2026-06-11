@@ -11,7 +11,7 @@ type SettingsHandler struct {
 	DB *sql.DB
 }
 
-// GET /api/settings — 获取所有设置项（键值对）
+// GetAll GET /api/settings — 获取所有设置项（键值对）
 func (h *SettingsHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.DB.Query("SELECT `key`, `value` FROM settings")
 	if err != nil {
