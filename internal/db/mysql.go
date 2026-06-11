@@ -11,7 +11,8 @@ package db
 
 import (
 	"database/sql"
-	_ "embed" // 用于嵌入 schema.sql 文件
+	// 用于嵌入 schema.sql 文件
+	_ "embed"
 	"fmt"
 	"time"
 
@@ -26,11 +27,16 @@ var schemaSQL string
 
 // Config 定义 MySQL 数据库连接参数。
 type Config struct {
-	User     string // 数据库用户名
-	Password string // 数据库密码
-	Host     string // 数据库主机地址
-	Port     int    // 数据库端口
-	DBName   string // 数据库名
+	// 数据库用户名
+	User string
+	// 数据库密码
+	Password string
+	// 数据库主机地址
+	Host string
+	// 数据库端口
+	Port int
+	// 数据库名
+	DBName string
 }
 
 // DefaultConfig 返回默认的数据库配置。
@@ -77,9 +83,12 @@ func New(cfg Config) (*sql.DB, error) {
 	}
 
 	// 配置连接池
-	database.SetMaxOpenConns(10)                      // 最大打开连接数
-	database.SetMaxIdleConns(5)                       // 最大空闲连接数
-	database.SetConnMaxLifetime(5 * time.Minute)      // 连接最大存活时间
+	// 最大打开连接数
+	database.SetMaxOpenConns(10)
+	// 最大空闲连接数
+	database.SetMaxIdleConns(5)
+	// 连接最大存活时间
+	database.SetConnMaxLifetime(5 * time.Minute)
 
 	// 测试数据库连接是否可用
 	if err := database.Ping(); err != nil {

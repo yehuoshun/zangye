@@ -14,19 +14,27 @@ import (
 // DashboardHandler 处理仪表盘相关的 HTTP 请求。
 // 通过 DB 字段注入数据库连接。
 type DashboardHandler struct {
-	DB *sql.DB // 数据库连接池
+	// 数据库连接池
+	DB *sql.DB
 }
 
 // DashboardStats 是仪表盘统计数据的响应结构体。
 // 通过 json tag 映射到 JSON 字段名（snake_case）。
 type DashboardStats struct {
-	FileCount      int64  `json:"file_count"`      // 文件总数
-	ImageCount     int64  `json:"image_count"`     // 图片数
-	VideoCount     int64  `json:"video_count"`     // 视频数
-	AudioCount     int64  `json:"audio_count"`     // 音频数
-	OtherCount     int64  `json:"other_count"`     // 其他文件数
-	StorageBytes   int64  `json:"storage_bytes"`   // 存储空间总字节数
-	StorageDisplay string `json:"storage_display"` // 存储空间的人类可读格式（如 "1.5 GB"）
+	// 文件总数
+	FileCount int64 `json:"file_count"`
+	// 图片数
+	ImageCount int64 `json:"image_count"`
+	// 视频数
+	VideoCount int64 `json:"video_count"`
+	// 音频数
+	AudioCount int64 `json:"audio_count"`
+	// 其他文件数
+	OtherCount int64 `json:"other_count"`
+	// 存储空间总字节数
+	StorageBytes int64 `json:"storage_bytes"`
+	// 存储空间的人类可读格式（如 "1.5 GB"）
+	StorageDisplay string `json:"storage_display"`
 }
 
 // Stats 处理 GET /api/dashboard/stats 请求。
@@ -72,16 +80,22 @@ func (h *DashboardHandler) Stats(w http.ResponseWriter, r *http.Request) {
 // 返回值保留一位小数，如 "1.5 GB"。
 // 0 字节返回 "0 B"。
 func formatSize(bytes int64) string {
+	const (
+		TB = 1 << 40
+		GB = 1 << 30
+		MB = 1 << 20
+		KB = 1 << 10
+	)
 	switch {
-	case bytes >= 1<<40: // 1 TB = 2^40
-		return fmt.Sprintf("%.1f TB", float64(bytes)/(1<<40))
-	case bytes >= 1<<30: // 1 GB = 2^30
-		return fmt.Sprintf("%.1f GB", float64(bytes)/(1<<30))
-	case bytes >= 1<<20: // 1 MB = 2^20
-		return fmt.Sprintf("%.1f MB", float64(bytes)/(1<<20))
-	case bytes >= 1<<10: // 1 KB = 2^10
-		return fmt.Sprintf("%.1f KB", float64(bytes)/(1<<10))
-	default: // 小于 1 KB
+	case bytes >= TB:
+		return fmt.Sprintf("%.1f TB", float64(bytes)/TB)
+	case bytes >= GB:
+		return fmt.Sprintf("%.1f GB", float64(bytes)/GB)
+	case bytes >= MB:
+		return fmt.Sprintf("%.1f MB", float64(bytes)/MB)
+	case bytes >= KB:
+		return fmt.Sprintf("%.1f KB", float64(bytes)/KB)
+	default:
 		return "0 B"
 	}
 }
