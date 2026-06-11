@@ -61,7 +61,7 @@ func (h *FoldersHandler) List(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "查询文件夹列表失败")
 		return
 	}
-	defer rows.Close()
+	defer closeRows(rows)
 
 	folders := make([]FolderResponse, 0)
 	for rows.Next() {
@@ -227,7 +227,7 @@ func (h *FoldersHandler) Stats(w http.ResponseWriter, r *http.Request) {
 			allFolderIDs = append(allFolderIDs, subID)
 			queue = append(queue, subID)
 		}
-		rows.Close()
+		closeRows(rows)
 	}
 
 	// 统计这些文件夹下的文件数和总大小

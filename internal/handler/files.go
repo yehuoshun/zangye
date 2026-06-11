@@ -54,7 +54,7 @@ func (h *FilesHandler) List(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "查询文件列表失败")
 		return
 	}
-	defer rows.Close()
+	defer closeRows(rows)
 
 	files := make([]FileResponse, 0)
 	for rows.Next() {

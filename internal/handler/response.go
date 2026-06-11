@@ -41,6 +41,14 @@ func scanRow(w http.ResponseWriter, row *sql.Row, dest ...any) bool {
 	return true
 }
 
+// closeRows 安全关闭 sql.Rows，记录关闭错误。
+// 用于替换 defer rows.Close()，确保错误被捕获。
+func closeRows(rows *sql.Rows) {
+	if err := rows.Close(); err != nil {
+		log.Printf("关闭 rows 失败: %v", err)
+	}
+}
+
 // buildInQuery 构建 SQL IN 查询，如 "SELECT ... WHERE id IN (?, ?, ?)"。
 func buildInQuery(prefix string, ids []string) (string, []any) {
 	placeholders := make([]string, len(ids))

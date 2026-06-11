@@ -18,7 +18,7 @@ func (h *SettingsHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "查询设置失败")
 		return
 	}
-	defer rows.Close()
+	defer closeRows(rows)
 
 	settings := make(map[string]string)
 	for rows.Next() {
