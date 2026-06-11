@@ -2,3 +2,4 @@ zangye
 zangye.exe
 frontend/node_modules/
 .DS_Store
+/frontend/dist/
