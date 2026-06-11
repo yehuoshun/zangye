@@ -49,21 +49,21 @@ func (h *DashboardHandler) Stats(w http.ResponseWriter, r *http.Request) {
 	var stats DashboardStats
 
 	// 查询文件总数
-	h.DB.QueryRow("SELECT COUNT(*) FROM files").Scan(&stats.FileCount)
+	if !scanRow(w, h.DB.QueryRow("SELECT COUNT(*) FROM files"), &stats.FileCount) {
+		return
+	}
 	// 查询图片数
-	h.DB.QueryRow("SELECT COUNT(*) FROM files WHERE mime_type LIKE 'image/%'").Scan(&stats.ImageCount)
+	scanRow(w, h.DB.QueryRow("SELECT COUNT(*) FROM files WHERE mime_type LIKE 'image/%'"), &stats.ImageCount)
 	// 查询视频数
-	h.DB.QueryRow("SELECT COUNT(*) FROM files WHERE mime_type LIKE 'video/%'").Scan(&stats.VideoCount)
+	scanRow(w, h.DB.QueryRow("SELECT COUNT(*) FROM files WHERE mime_type LIKE 'video/%'"), &stats.VideoCount)
 	// 查询音频数
-	h.DB.QueryRow("SELECT COUNT(*) FROM files WHERE mime_type LIKE 'audio/%'").Scan(&stats.AudioCount)
-	// 查询其他文件数（不匹配 image/video/audio）
-	h.DB.QueryRow("SELECT COUNT(*) FROM files WHERE mime_type NOT LIKE 'image/%' AND mime_type NOT LIKE 'video/%' AND mime_type NOT LIKE 'audio/%'").Scan(&stats.OtherCount)
-	// 查询存储空间总大小（COALESCE 处理空表返回 NULL 的情况）
-	h.DB.QueryRow("SELECT COALESCE(SUM(file_size), 0) FROM files").Scan(&stats.StorageBytes)
-	// 将字节数转换为人类可读格式
-	stats.StorageDisplay = formatSize(stats.StorageBytes)
+	scanRow(w, h.DB.QueryRow("SELECT COUNT(*) FROM files WHERE mime_type LIKE 'audio/%'"), &stats.AudioCount)
+	// 查询其他文件数
+	scanRow(w, h.DB.QueryRow("SELECT COUNT(*) FROM files WHERE mime_type NOT LIKE 'image/%' AND mime_type NOT LIKE 'video/%' AND mime_type NOT LIKE 'audio/%'"), &stats.OtherCount)
+	// 查询存储空间总大小
+	scanRow(w, h.DB.QueryRow("SELECT COALESCE(SUM(file_size), 0) FROM files"), &stats.StorageBytes)
 
-	// 返回 JSON 响应
+	stats.StorageDisplay = formatSize(stats.StorageBytes)
 	writeJSON(w, http.StatusOK, stats)
 }
 

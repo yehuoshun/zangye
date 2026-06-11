@@ -5,6 +5,7 @@
 package handler
 
 import (
+	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -23,4 +24,18 @@ func writeJSON(w http.ResponseWriter, status int, data any) {
 // writeError 返回统一的错误 JSON 响应。
 func writeError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{"error": message})
+}
+
+// scanRow 执行 QueryRow 并将结果写入 dest。
+// 返回 true 表示找到行，false 表示没有行（sql.ErrNoRows）。
+// 其他错误通过 HTTP 响应返回。
+func scanRow(w http.ResponseWriter, row *sql.Row, dest ...any) bool {
+	if err := row.Scan(dest...); err != nil {
+		if err == sql.ErrNoRows {
+			return false
+		}
+		writeError(w, http.StatusInternalServerError, "数据库查询失败")
+		return false
+	}
+	return true
 }

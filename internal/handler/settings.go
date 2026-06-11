@@ -23,7 +23,10 @@ func (h *SettingsHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	settings := make(map[string]string)
 	for rows.Next() {
 		var k, v string
-		rows.Scan(&k, &v)
+		if err := rows.Scan(&k, &v); err != nil {
+			writeError(w, http.StatusInternalServerError, "读取设置数据失败")
+			return
+		}
 		settings[k] = v
 	}
 
