@@ -3,7 +3,11 @@ package handler
 import (
 	"database/sql"
 	"encoding/json"
+	"mime"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/google/uuid"
 )
@@ -26,12 +30,11 @@ type FileResponse struct {
 }
 
 // FileCreateRequest 是创建文件的请求体。
+// 只需提供路径和所属集合，文件大小和 MIME 类型由后端自动识别。
 type FileCreateRequest struct {
 	CollectionID string  `json:"collection_id"`
 	Path         string  `json:"path"`
 	DisplayName  *string `json:"display_name"`
-	FileSize     int64   `json:"file_size"`
-	MimeType     *string `json:"mime_type"`
 	SortOrder    int     `json:"sort_order"`
 }
 
@@ -90,7 +93,7 @@ func (h *FilesHandler) Get(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, f)
 }
 
-// Create POST /api/files — 创建文件
+// Create POST /api/files — 创建文件，自动识别文件大小和 MIME 类型
 func (h *FilesHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req FileCreateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -98,7 +101,6 @@ func (h *FilesHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 必填字段校验
 	if req.Path == "" {
 		writeError(w, http.StatusBadRequest, "文件路径不能为空")
 		return
@@ -108,10 +110,13 @@ func (h *FilesHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 自动识别文件信息
+	fileSize, mimeType := scanFile(req.Path)
+
 	id := uuid.New().String()
 	_, err := h.DB.Exec(
 		"INSERT INTO files (id, collection_id, path, display_name, file_size, mime_type, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)",
-		id, req.CollectionID, req.Path, req.DisplayName, req.FileSize, req.MimeType, req.SortOrder,
+		id, req.CollectionID, req.Path, req.DisplayName, fileSize, mimeType, req.SortOrder,
 	)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "创建文件失败")
@@ -126,6 +131,25 @@ func (h *FilesHandler) Create(w http.ResponseWriter, r *http.Request) {
 	).Scan(&f.ID, &f.CollectionID, &f.Path, &f.DisplayName, &f.FileSize, &f.MimeType, &f.SortOrder, &f.CreatedAt)
 
 	writeJSON(w, http.StatusCreated, f)
+}
+
+// scanFile 读取文件信息：大小（字节）+ MIME 类型。
+// 如果文件不存在或无法读取，返回 0 和 nil。
+func scanFile(path string) (int64, *string) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return 0, nil
+	}
+
+	size := info.Size()
+
+	// 根据扩展名推断 MIME 类型
+	ext := strings.ToLower(filepath.Ext(path))
+	mimeType := mime.TypeByExtension(ext)
+	if mimeType == "" {
+		return size, nil
+	}
+	return size, &mimeType
 }
 
 // Update PUT /api/files/{id} — 更新文件

@@ -63,25 +63,16 @@
         <div class="modal-body">
           <div class="form-group">
             <label>文件路径 <span class="required">*</span></label>
-            <input v-model="form.path" class="form-input" placeholder="/path/to/file" />
+            <input v-model="form.path" class="form-input" placeholder="/data/movies/example.mp4" />
+            <span class="form-hint">输入服务器上的文件路径，大小和类型自动识别</span>
           </div>
           <div class="form-group">
             <label>显示名称</label>
-            <input v-model="form.display_name" class="form-input" placeholder="可选，不填则用文件名" />
+            <input v-model="form.display_name" class="form-input" placeholder="可选，不填则使用文件名" />
           </div>
           <div class="form-group">
-            <label>所属集合 ID</label>
+            <label>所属集合 ID <span class="required">*</span></label>
             <input v-model="form.collection_id" class="form-input" placeholder="集合 UUID" />
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>文件大小（字节）</label>
-              <input v-model.number="form.file_size" type="number" class="form-input" placeholder="0" />
-            </div>
-            <div class="form-group">
-              <label>MIME 类型</label>
-              <input v-model="form.mime_type" class="form-input" placeholder="image/png" />
-            </div>
           </div>
         </div>
         <div class="modal-footer">
@@ -130,8 +121,6 @@ const form = reactive<FileCreateRequest>({
   collection_id: '',
   path: '',
   display_name: null,
-  file_size: 0,
-  mime_type: null,
 })
 
 // 删除确认
@@ -156,8 +145,6 @@ function openCreate() {
   form.collection_id = ''
   form.path = ''
   form.display_name = null
-  form.file_size = 0
-  form.mime_type = null
   showModal.value = true
 }
 
@@ -168,8 +155,6 @@ function openEdit(f: FileItem) {
   form.collection_id = f.collection_id
   form.path = f.path
   form.display_name = f.display_name
-  form.file_size = f.file_size
-  form.mime_type = f.mime_type
   showModal.value = true
 }
 
@@ -180,7 +165,7 @@ function closeModal() {
 
 // 保存
 async function save() {
-  if (!form.path) return
+  if (!form.path || !form.collection_id) return
   saving.value = true
   try {
     if (isEditing.value) {
@@ -188,12 +173,14 @@ async function save() {
         collection_id: form.collection_id || null,
         path: form.path || null,
         display_name: form.display_name || null,
-        file_size: form.file_size || null,
-        mime_type: form.mime_type || null,
       }
       await updateFile(editingId.value, data)
     } else {
-      await createFile(form)
+      await createFile({
+        collection_id: form.collection_id,
+        path: form.path,
+        display_name: form.display_name || null,
+      })
     }
     showModal.value = false
     await loadFiles()
@@ -421,10 +408,9 @@ function formatDate(ts: string): string {
 .form-input:focus { border-color: var(--accent); }
 .form-input::placeholder { color: var(--text-muted); }
 
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+.form-hint {
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .text-muted { color: var(--text-muted); }

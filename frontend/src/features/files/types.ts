@@ -24,8 +24,6 @@ export interface FileCreateRequest {
   collection_id: string
   path: string
   display_name?: string | null
-  file_size?: number
-  mime_type?: string | null
   sort_order?: number
 }
 
