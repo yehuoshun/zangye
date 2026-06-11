@@ -104,7 +104,7 @@ onMounted(async () => {
   gap: 16px;
 }
 /* 悬停时边框变为红色强调 */
-.stat-card:hover { border-color: #e94560; }
+.stat-card:hover { border-color: #60a5fa; }
 
 /* 图标容器 */
 .stat-icon {
@@ -120,6 +120,6 @@ onMounted(async () => {
 
 /* 数值和标签 */
 .stat-info { display: flex; flex-direction: column; gap: 4px; }
-.stat-value { font-size: 28px; font-weight: 700; color: #e94560; } /* 红色强调数值 */
+.stat-value { font-size: 28px; font-weight: 700; color: #60a5fa; } /* 淡蓝强调数值 */
 .stat-label { font-size: 13px; color: #606080; }                   /* 灰色标签 */
 </style>

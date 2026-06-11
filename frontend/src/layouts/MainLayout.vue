@@ -95,7 +95,7 @@ onMounted(async () => {
   border-bottom: 1px solid #0f3460; /* 底部分割线 */
 }
 .logo-icon { font-size: 28px; }
-.logo-text { font-size: 20px; font-weight: 700; color: #e94560; } /* 红色强调 */
+.logo-text { font-size: 20px; font-weight: 700; color: #60a5fa; } /* 淡蓝强调 */
 
 /* 导航菜单 */
 .nav {
@@ -119,7 +119,7 @@ onMounted(async () => {
   font-size: 15px;
 }
 .nav-item:hover { background: #0f3460; color: #e0e0e0; }           /* 悬停高亮 */
-.nav-item.router-link-active { background: #0f3460; color: #e94560; } /* 激活状态：红色 */
+.nav-item.router-link-active { background: #0f3460; color: #60a5fa; } /* 激活状态：淡蓝 */
 
 .nav-icon { font-size: 18px; }
 
