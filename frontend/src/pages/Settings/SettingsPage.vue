@@ -6,9 +6,7 @@
     - 布局模式
     - 数据库版本号（只读）
 
-  数据流：
-    页面加载 → fetchSettings() → GET /api/settings → 渲染表单
-    用户修改 → updateSettings() → PUT /api/settings → 保存到数据库
+  切换选项自动保存，无需手动点击。
 -->
 
 <template>
@@ -22,7 +20,7 @@
           <span class="setting-name">主题</span>
           <span class="setting-desc">界面颜色方案</span>
         </div>
-        <select v-model="form.theme" class="setting-input">
+        <select v-model="form.theme" class="setting-input" @change="autoSave">
           <option value="dark">深色</option>
           <option value="light">浅色</option>
         </select>
@@ -34,7 +32,7 @@
           <span class="setting-name">布局模式</span>
           <span class="setting-desc">侧边栏或顶部导航</span>
         </div>
-        <select v-model="form.layout" class="setting-input">
+        <select v-model="form.layout" class="setting-input" @change="autoSave">
           <option value="sidebar">侧边栏</option>
           <option value="topbar">顶部导航</option>
         </select>
@@ -49,13 +47,8 @@
         <span class="setting-value">{{ form.version }}</span>
       </div>
 
-      <!-- 保存按钮 -->
-      <div class="setting-actions">
-        <button class="btn-save" @click="save" :disabled="saving">
-          {{ saving ? '保存中…' : '保存设置' }}
-        </button>
-        <span v-if="saved" class="saved-tip">✅ 已保存</span>
-      </div>
+      <!-- 保存状态 -->
+      <div class="setting-status" v-if="status">{{ status }}</div>
     </div>
   </div>
 </template>
@@ -65,8 +58,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { fetchSettings, updateSettings } from '@/features/settings/api'
 
 const form = reactive({ theme: 'dark', layout: 'sidebar', version: '' })
-const saving = ref(false)
-const saved = ref(false)
+const status = ref('')
 
 onMounted(async () => {
   try {
@@ -79,17 +71,14 @@ onMounted(async () => {
   }
 })
 
-async function save() {
-  saving.value = true
-  saved.value = false
+async function autoSave() {
   try {
     await updateSettings({ theme: form.theme, layout: form.layout })
-    saved.value = true
-    setTimeout(() => saved.value = false, 2000)
+    status.value = '✅ 已保存'
+    setTimeout(() => status.value = '', 2000)
   } catch (e) {
-    console.error('保存设置失败', e)
-  } finally {
-    saving.value = false
+    status.value = '❌ 保存失败'
+    setTimeout(() => status.value = '', 2000)
   }
 }
 </script>
@@ -134,26 +123,9 @@ async function save() {
 .setting-input:focus { border-color: #60a5fa; }
 .setting-value { color: #606080; }
 
-.setting-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.setting-status {
+  font-size: 13px;
+  color: #4ade80;
   padding-top: 4px;
 }
-
-.btn-save {
-  background: #60a5fa;
-  color: #0a0a1a;
-  border: none;
-  padding: 10px 24px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity .2s;
-}
-.btn-save:hover { opacity: .85; }
-.btn-save:disabled { opacity: .5; cursor: not-allowed; }
-
-.saved-tip { font-size: 14px; color: #4ade80; }
 </style>
