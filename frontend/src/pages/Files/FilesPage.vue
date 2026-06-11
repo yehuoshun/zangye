@@ -89,8 +89,8 @@
             <input v-model="form.display_name" class="form-input" placeholder="可选，不填则使用文件名" />
           </div>
           <div class="form-group">
-            <label>所属集合 ID <span class="required">*</span></label>
-            <input v-model="form.collection_id" class="form-input" placeholder="集合 UUID" />
+            <label>所属文件夹 ID <span class="required">*</span></label>
+            <input v-model="form.folder_id" class="form-input" placeholder="文件夹 UUID" />
           </div>
           <div class="form-row">
             <div class="form-group">
@@ -146,7 +146,7 @@ const saving = ref(false)
 
 // 表单
 const form = reactive<FileCreateRequest>({
-  collection_id: '',
+  folder_id: '',
   path: '',
   display_name: null,
   file_size: 0,
@@ -172,7 +172,7 @@ async function loadFiles() {
 function openCreate() {
   isEditing.value = false
   editingId.value = ''
-  form.collection_id = ''
+  form.folder_id = ''
   form.path = ''
   form.display_name = null
   form.file_size = 0
@@ -184,7 +184,7 @@ function openCreate() {
 function openEdit(f: FileItem) {
   isEditing.value = true
   editingId.value = f.id
-  form.collection_id = f.collection_id
+  form.folder_id = f.folder_id
   form.path = f.path
   form.display_name = f.display_name
   form.file_size = f.file_size
@@ -199,12 +199,12 @@ function closeModal() {
 
 // 保存
 async function save() {
-  if (!form.path || !form.collection_id) return
+  if (!form.path || !form.folder_id) return
   saving.value = true
   try {
     if (isEditing.value) {
       const data: FileUpdateRequest = {
-        collection_id: form.collection_id || null,
+        folder_id: form.folder_id || null,
         path: form.path || null,
         display_name: form.display_name || null,
         file_size: form.file_size || null,
@@ -213,7 +213,7 @@ async function save() {
       await updateFile(editingId.value, data)
     } else {
       await createFile({
-        collection_id: form.collection_id,
+        folder_id: form.folder_id,
         path: form.path,
         display_name: form.display_name || null,
         file_size: form.file_size,

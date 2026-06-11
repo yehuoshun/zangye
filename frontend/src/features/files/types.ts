@@ -8,7 +8,7 @@
  */
 export interface FileItem {
   id: string
-  collection_id: string
+  folder_id: string
   path: string
   display_name: string | null
   file_size: number
@@ -21,7 +21,7 @@ export interface FileItem {
  * 创建文件请求体
  */
 export interface FileCreateRequest {
-  collection_id: string
+  folder_id: string
   path: string
   display_name?: string | null
   file_size?: number
@@ -33,7 +33,7 @@ export interface FileCreateRequest {
  * 更新文件请求体（所有字段可选）
  */
 export interface FileUpdateRequest {
-  collection_id?: string | null
+  folder_id?: string | null
   path?: string | null
   display_name?: string | null
   file_size?: number | null

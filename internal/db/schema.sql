@@ -23,9 +23,6 @@ CREATE TABLE IF NOT EXISTS folders (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP  -- 更新时间（自动更新）
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 兼容旧表名
-CREATE TABLE IF NOT EXISTS collections LIKE folders;
-
 -- -----------------------------------------------------------
 -- tags: 标签表
 -- 标签可以附加到任意文件上，用于分类和检索。

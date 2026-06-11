@@ -16,7 +16,7 @@ type FilesHandler struct {
 // FileResponse 是文件 API 的响应结构体。
 type FileResponse struct {
 	ID           string  `json:"id"`
-	FolderID string  `json:"collection_id"`
+	FolderID string  `json:"folder_id"`
 	Path         string  `json:"path"`
 	DisplayName  *string `json:"display_name"`
 	FileSize     int64   `json:"file_size"`
@@ -27,7 +27,7 @@ type FileResponse struct {
 
 // FileCreateRequest 是创建文件的请求体。
 type FileCreateRequest struct {
-	FolderID string  `json:"collection_id"`
+	FolderID string  `json:"folder_id"`
 	Path         string  `json:"path"`
 	DisplayName  *string `json:"display_name"`
 	FileSize     int64   `json:"file_size"`
@@ -37,7 +37,7 @@ type FileCreateRequest struct {
 
 // FileUpdateRequest 是更新文件的请求体。
 type FileUpdateRequest struct {
-	FolderID *string `json:"collection_id"`
+	FolderID *string `json:"folder_id"`
 	Path         *string `json:"path"`
 	DisplayName  *string `json:"display_name"`
 	FileSize     *int64  `json:"file_size"`
