@@ -6,36 +6,38 @@
 
 ## 表结构
 
-### 1. collections（集合表）
+### 1. folders（文件夹表）
 
-文件集合，支持树形结构（通过 `parent_id` 自引用）。
+文件文件夹，支持树形结构（通过 `parent_id` 自引用）。
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `id` | VARCHAR(36) PK | 集合唯一标识（UUID） |
-| `name` | VARCHAR(255) NOT NULL | 集合名称 |
-| `icon` | VARCHAR(10) DEFAULT '📁' | 集合图标（emoji） |
-| `parent_id` | VARCHAR(36) DEFAULT NULL | 父集合 ID（NULL = 根集合） |
+| `id` | VARCHAR(36) PK | 文件夹唯一标识（UUID） |
+| `name` | VARCHAR(255) NOT NULL | 文件夹名称 |
+| `icon` | VARCHAR(10) DEFAULT '📁' | 文件夹图标（emoji） |
+| `parent_id` | VARCHAR(36) DEFAULT NULL | 父文件夹 ID（NULL = 根目录） |
+| `description` | TEXT DEFAULT NULL | 文件夹描述 |
 | `sort_order` | INT DEFAULT 0 | 排序序号 |
 | `created_at` | TIMESTAMP | 创建时间 |
 | `updated_at` | TIMESTAMP | 更新时间（自动更新） |
 
 ### 2. files（文件表）
 
-记录文件的元信息，每个文件必须属于一个集合。
+记录文件的元信息，每个文件必须属于一个文件夹。
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `id` | VARCHAR(36) PK | 文件唯一标识（UUID） |
-| `collection_id` | VARCHAR(36) FK NOT NULL | 所属集合 ID |
-| `path` | VARCHAR(1024) NOT NULL | 文件在本地文件系统中的路径 |
+| `folder_id` | VARCHAR(36) FK NOT NULL | 所属文件夹 ID |
+| `path` | VARCHAR(1024) NOT NULL | 文件路径 |
 | `display_name` | VARCHAR(512) DEFAULT NULL | 显示名称 |
 | `file_size` | BIGINT DEFAULT 0 | 文件大小（字节） |
 | `mime_type` | VARCHAR(255) DEFAULT NULL | MIME 类型 |
+| `file_mtime` | TIMESTAMP NULL | 文件实际修改时间 |
 | `sort_order` | INT DEFAULT 0 | 排序序号 |
 | `created_at` | TIMESTAMP | 创建时间 |
 
-**外键**：`collection_id → collections(id) ON DELETE CASCADE`
+**外键**：`folder_id → folders(id) ON DELETE CASCADE`
 
 ### 3. tags（标签表）
 
@@ -84,13 +86,14 @@
 
 ```
 ┌──────────────┐       ┌──────────────┐
-│  collections │       │     tags     │
+│   folders    │       │     tags     │
 │──────────────│       │──────────────│
 │ id (PK)      │       │ id (PK)      │
 │ name         │       │ name (UNIQUE)│
 │ icon         │       │ color        │
 │ parent_id ───┼─┐     │ created_at   │
-│ sort_order   │ │     └──────┬───────┘
+│ description  │ │     └──────┬───────┘
+│ sort_order   │ │            │
 │ created_at   │ │            │
 │ updated_at   │ │            │
 └──────┬───────┘ │            │
@@ -101,11 +104,12 @@
 │    files     │ │            │
 │──────────────│ │            │
 │ id (PK)      │ │            │
-│ collection_id│◄┘            │
+│ folder_id    │◄┘            │
 │ path         │              │
 │ display_name │              │
 │ file_size    │              │
 │ mime_type    │              │
+│ file_mtime   │              │
 │ sort_order   │              │
 │ created_at   │              │
 └──────┬───────┘              │
@@ -131,7 +135,7 @@
 
 | 操作 | 影响 |
 |------|------|
-| 删除集合 | 级联删除该集合下所有文件 |
+| 删除文件夹 | 级联删除该文件夹下所有文件 |
 | 删除文件 | 级联删除该文件的所有标签关联 |
 | 删除标签 | 级联删除该标签的所有文件关联 |
 

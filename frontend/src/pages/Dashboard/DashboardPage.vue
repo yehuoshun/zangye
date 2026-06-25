@@ -22,17 +22,23 @@
 
     <!-- 统计卡片网格 -->
     <div class="stats-grid">
-      <!--
-        遍历 cards 计算属性渲染统计卡片。
-        每张卡片包含：图标、数值、标签。
-      -->
-      <div class="stat-card" v-for="card in cards" :key="card.label">
-        <!-- 图标区域 -->
+      <div
+        class="stat-card"
+        v-for="card in cards"
+        :key="card.label"
+        :class="{ 'stat-card-wide': card.label === '存储空间' }"
+      >
         <div class="stat-icon">{{ card.icon }}</div>
-        <!-- 信息区域：数值 + 标签 -->
         <div class="stat-info">
           <div class="stat-value">{{ card.value }}</div>
           <div class="stat-label">{{ card.label }}</div>
+          <!-- 存储空间 5 维度拆分 -->
+          <div class="storage-breakdown" v-if="card.sub">
+            <span class="breakdown-item" v-for="item in card.sub" :key="item.unit">
+              <span class="breakdown-val">{{ item.value }}</span>
+              <span class="breakdown-unit">{{ item.unit }}</span>
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -71,8 +77,22 @@ const cards = computed(() => [
   { icon: '🎬', value: stats.value.video_count, label: '视频' },
   { icon: '🎵', value: stats.value.audio_count, label: '音频' },
   { icon: '📄', value: stats.value.other_count, label: '其他' },
-  { icon: '💾', value: stats.value.storage_display, label: '存储空间' },
+  { icon: '💾', value: stats.value.storage_display, label: '存储空间', sub: storageBreakdown.value },
 ])
+
+/**
+ * 存储空间 5 维度拆分：TB / GB / MB / KB / B
+ */
+const storageBreakdown = computed(() => {
+  const bytes = stats.value.storage_bytes
+  return [
+    { unit: 'TB', value: Math.floor(bytes / (1 << 40)) },
+    { unit: 'GB', value: Math.floor((bytes % (1 << 40)) / (1 << 30)) },
+    { unit: 'MB', value: Math.floor((bytes % (1 << 30)) / (1 << 20)) },
+    { unit: 'KB', value: Math.floor((bytes % (1 << 20)) / (1 << 10)) },
+    { unit: 'B',  value: bytes % (1 << 10) },
+  ]
+})
 
 // 组件挂载后异步加载仪表盘数据
 onMounted(async () => {
@@ -125,4 +145,32 @@ onMounted(async () => {
 .stat-info { display: flex; flex-direction: column; gap: 4px; }
 .stat-value { font-size: 28px; font-weight: 700; color: var(--accent); }
 .stat-label { font-size: 13px; color: var(--text-muted); }
+
+/* 存储空间卡片宽一点 */
+.stat-card-wide { grid-column: span 2; }
+
+/* 存储空间 5 维度拆分 */
+.storage-breakdown {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.breakdown-item {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  padding: 2px 8px;
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+}
+.breakdown-val {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.breakdown-unit {
+  font-size: 11px;
+  color: var(--text-muted);
+}
 </style>

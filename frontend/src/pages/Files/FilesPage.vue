@@ -59,6 +59,7 @@
             <th>名称</th>
             <th>大小</th>
             <th>类型</th>
+            <th>标签</th>
             <th>创建时间</th>
             <th>操作</th>
           </tr>
@@ -87,6 +88,12 @@
               <span class="mime-badge" v-if="f.mime_type">{{ f.mime_type }}</span>
               <span class="text-muted" v-else>—</span>
             </td>
+            <td class="cell-tags">
+              <span class="tag-chip" v-for="t in getFileTags(f.id)" :key="t.id" :style="{ background: t.color + '22', color: t.color, borderColor: t.color }">
+                {{ t.name }}
+              </span>
+              <span class="text-muted" v-if="!getFileTags(f.id).length">—</span>
+            </td>
             <td class="cell-date">{{ formatDate(f.created_at) }}</td>
             <td class="cell-actions">
               <button class="btn btn-sm" @click="openEditFile(f)">编辑</button>
@@ -114,6 +121,10 @@
           <div class="form-group">
             <label>文件夹名称 <span class="required">*</span></label>
             <input v-model="folderForm.name" class="form-input" placeholder="输入文件夹名称" @keyup.enter="saveFolder" />
+          </div>
+          <div class="form-group">
+            <label>描述</label>
+            <input v-model="folderForm.description" class="form-input" placeholder="文件夹描述（可选）" />
           </div>
         </div>
         <div class="modal-footer">
@@ -152,6 +163,10 @@
               <input :value="fileForm.mime_type || '—'" class="form-input" placeholder="根据扩展名自动识别" readonly />
             </div>
           </div>
+          <div class="form-group">
+            <label>文件修改时间</label>
+            <input v-model="fileForm.file_mtime" class="form-input" type="datetime-local" />
+          </div>
         </div>
         <div class="modal-footer">
           <button class="btn" @click="closeFileModal">取消</button>
@@ -186,6 +201,7 @@
     >
       <div class="context-item" @click="contextOpen">📂 打开</div>
       <div class="context-item" v-if="contextMenu.folder" @click="contextRename">✏️ 重命名</div>
+      <div class="context-item" v-if="contextMenu.file" @click="openFileTags(contextMenu.file)">🏷️ 管理标签</div>
       <div class="context-item" v-if="contextMenu.file" @click="contextEdit">✏️ 编辑</div>
       <div class="context-item" v-if="contextMenu.folder" @click="contextDetail">ℹ️ 详情</div>
       <div class="context-sep"></div>
@@ -210,12 +226,28 @@
               <span class="detail-value">{{ detailStats.subFolders }}</span>
             </div>
             <div class="detail-item">
-              <span class="detail-label">包含文件</span>
+              <span class="detail-label">总文件数</span>
               <span class="detail-value">{{ detailStats.files }}</span>
             </div>
             <div class="detail-item">
               <span class="detail-label">总大小</span>
               <span class="detail-value">{{ formatFileSize(detailStats.totalSize) }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">🖼️ 图片</span>
+              <span class="detail-value">{{ detailStats.imageCount }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">🎬 视频</span>
+              <span class="detail-value">{{ detailStats.videoCount }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">🎵 音频</span>
+              <span class="detail-value">{{ detailStats.audioCount }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">📄 其他</span>
+              <span class="detail-value">{{ detailStats.otherCount }}</span>
             </div>
             <div class="detail-item" style="grid-column: 1 / -1">
               <span class="detail-label">创建时间</span>
@@ -228,6 +260,39 @@
         </div>
       </div>
     </div>
+
+    <!-- 文件标签管理弹窗 -->
+    <div class="modal-overlay" v-if="showTagModal" @click.self="closeTagModal">
+      <div class="modal modal-sm">
+        <div class="modal-header">
+          <h2>管理标签 — {{ tagFile?.display_name || (tagFile ? filenameFromPath(tagFile.path) : '') }}</h2>
+          <button class="btn-close" @click="closeTagModal">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="tag-select-list">
+            <label
+              v-for="t in allTags"
+              :key="t.id"
+              class="tag-select-item"
+              :style="{ borderColor: selectedTagIds.includes(t.id) ? t.color : 'var(--border-color)' }"
+            >
+              <input
+                type="checkbox"
+                :checked="selectedTagIds.includes(t.id)"
+                @change="toggleTagSelect(t.id)"
+              />
+              <span class="tag-select-dot" :style="{ background: t.color }"></span>
+              <span class="tag-select-name">{{ t.name }}</span>
+            </label>
+          </div>
+          <div class="text-muted" style="margin-top: 12px; font-size: 13px;" v-if="!allTags.length">还没有标签，先去标签管理页创建</div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn" @click="closeTagModal">取消</button>
+          <button class="btn btn-primary" @click="saveFileTags">保存</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -235,8 +300,10 @@
 import { ref, reactive, onMounted } from 'vue'
 import type { FileItem, FileCreateRequest, FileUpdateRequest } from '@/features/files/types'
 import type { FolderItem, FolderCreateRequest, FolderUpdateRequest } from '@/features/folders/types'
-import { fetchFiles, createFile, updateFile, deleteFile } from '@/features/files/api'
+import { fetchFiles, createFile, updateFile, deleteFile, fetchFileTags, setFileTags } from '@/features/files/api'
 import { fetchFolders, createFolder, updateFolder, deleteFolder, fetchFolderStats } from '@/features/folders/api'
+import { fetchTags } from '@/features/tags/api'
+import type { TagItem } from '@/features/tags/types'
 
 // 导航状态
 const currentFolderId = ref<string | null>(null)
@@ -257,7 +324,7 @@ const contextMenu = reactive({
 // 文件夹详情
 const showDetailModal = ref(false)
 const detailFolder = ref<FolderItem | null>(null)
-const detailStats = reactive({ subFolders: 0, files: 0, totalSize: 0 })
+const detailStats = reactive({ subFolders: 0, files: 0, totalSize: 0, imageCount: 0, videoCount: 0, audioCount: 0, otherCount: 0 })
 
 // 数据
 const folders = ref<FolderItem[]>([])
@@ -266,7 +333,7 @@ const files = ref<FileItem[]>([])
 // 文件夹弹窗
 const showFolderModal = ref(false)
 const editingFolder = ref<FolderItem | null>(null)
-const folderForm = reactive({ name: '' })
+const folderForm = reactive({ name: '', description: '' })
 
 // 文件弹窗
 const showFileModal = ref(false)
@@ -277,12 +344,14 @@ const fileForm = reactive<{
   display_name: string | null
   file_size: number
   mime_type: string | null
+  file_mtime: string | null
 }>({
   folder_id: '',
   real_paths: '',
   display_name: null,
   file_size: 0,
   mime_type: null,
+  file_mtime: null,
 })
 
 // 删除确认
@@ -291,7 +360,16 @@ const deleteMessage = ref('')
 const deleteType = ref<'file' | 'folder'>('file')
 const deleteTargetId = ref('')
 
-onMounted(loadData)
+// 标签
+const allTags = ref<TagItem[]>([])
+const fileTagMap = ref<Record<string, TagItem[]>>({})
+const showTagModal = ref(false)
+const tagFile = ref<FileItem | null>(null)
+const selectedTagIds = ref<string[]>([])
+
+onMounted(async () => {
+  await Promise.all([loadData(), loadAllTags()])
+})
 
 async function loadData() {
   await Promise.all([loadFolders(), loadFiles()])
@@ -307,11 +385,34 @@ async function loadFolders() {
 
 async function loadFiles() {
   try {
-    // TODO: 等 files API 支持 folder_id 过滤后改这里
-    files.value = await fetchFiles()
+    files.value = await fetchFiles(currentFolderId.value || undefined)
+    // 加载每个文件的标签
+    await loadFilesTags()
   } catch (e) {
     console.error('加载文件失败', e)
   }
+}
+
+async function loadAllTags() {
+  try {
+    allTags.value = await fetchTags()
+  } catch (e) {
+    console.error('加载标签失败', e)
+  }
+}
+
+async function loadFilesTags() {
+  for (const f of files.value) {
+    try {
+      fileTagMap.value[f.id] = await fetchFileTags(f.id)
+    } catch {
+      fileTagMap.value[f.id] = []
+    }
+  }
+}
+
+function getFileTags(fileId: string): TagItem[] {
+  return fileTagMap.value[fileId] || []
 }
 
 // ===== 文件夹导航 =====
@@ -376,10 +477,18 @@ async function contextDetail() {
     detailStats.subFolders = stats.folder_count
     detailStats.files = stats.file_count
     detailStats.totalSize = stats.total_size
+    detailStats.imageCount = stats.image_count || 0
+    detailStats.videoCount = stats.video_count || 0
+    detailStats.audioCount = stats.audio_count || 0
+    detailStats.otherCount = stats.other_count || 0
   } catch {
     detailStats.subFolders = 0
     detailStats.files = 0
     detailStats.totalSize = 0
+    detailStats.imageCount = 0
+    detailStats.videoCount = 0
+    detailStats.audioCount = 0
+    detailStats.otherCount = 0
   }
   showDetailModal.value = true
   closeContextMenu()
@@ -396,12 +505,14 @@ function contextDelete() {
 function openCreateFolder() {
   editingFolder.value = null
   folderForm.name = ''
+  folderForm.description = ''
   showFolderModal.value = true
 }
 
 function openEditFolder(f: FolderItem) {
   editingFolder.value = f
   folderForm.name = f.name
+  folderForm.description = f.description || ''
   showFolderModal.value = true
 }
 
@@ -413,10 +524,14 @@ async function saveFolder() {
   if (!folderForm.name) return
   try {
     if (editingFolder.value) {
-      await updateFolder(editingFolder.value.id, { name: folderForm.name })
+      await updateFolder(editingFolder.value.id, {
+        name: folderForm.name,
+        description: folderForm.description || null,
+      })
     } else {
       await createFolder({
         name: folderForm.name,
+        description: folderForm.description || null,
         parent_id: currentFolderId.value || null,
       })
     }
@@ -443,6 +558,7 @@ function openCreateFile() {
   fileForm.display_name = null
   fileForm.file_size = 0
   fileForm.mime_type = null
+  fileForm.file_mtime = null
   showFileModal.value = true
 }
 
@@ -515,6 +631,7 @@ function openEditFile(f: FileItem) {
   fileForm.display_name = f.display_name
   fileForm.file_size = f.file_size
   fileForm.mime_type = f.mime_type
+  fileForm.file_mtime = f.file_mtime
   showFileModal.value = true
 }
 
@@ -532,6 +649,7 @@ async function saveFile() {
         display_name: fileForm.display_name || null,
         file_size: fileForm.file_size || null,
         mime_type: fileForm.mime_type || null,
+        file_mtime: fileForm.file_mtime || null,
       }
       await updateFile(editingFile.value.id, data)
     } else {
@@ -559,6 +677,39 @@ function confirmDeleteFile(f: FileItem) {
   deleteTargetId.value = f.id
   deleteMessage.value = `确定要删除文件「${f.display_name || f.path}」吗？此操作不可撤销。`
   showDeleteConfirm.value = true
+}
+
+// ===== 标签管理 =====
+
+async function openFileTags(f: FileItem) {
+  tagFile.value = f
+  selectedTagIds.value = (fileTagMap.value[f.id] || []).map(t => t.id)
+  showTagModal.value = true
+}
+
+function closeTagModal() {
+  showTagModal.value = false
+}
+
+function toggleTagSelect(tagId: string) {
+  const idx = selectedTagIds.value.indexOf(tagId)
+  if (idx >= 0) {
+    selectedTagIds.value.splice(idx, 1)
+  } else {
+    selectedTagIds.value.push(tagId)
+  }
+}
+
+async function saveFileTags() {
+  if (!tagFile.value) return
+  try {
+    await setFileTags(tagFile.value.id, selectedTagIds.value)
+    // 更新本地缓存
+    fileTagMap.value[tagFile.value.id] = allTags.value.filter(t => selectedTagIds.value.includes(t.id))
+    showTagModal.value = false
+  } catch (e) {
+    console.error('保存文件标签失败', e)
+  }
 }
 
 // ===== 删除执行 =====
@@ -903,4 +1054,46 @@ function fileIcon(mime: string | null): string {
 }
 
 .text-muted { color: var(--text-muted); }
+
+/* 标签 */
+.cell-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: 200px;
+}
+.tag-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+.tag-select-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+.tag-select-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color .15s;
+}
+.tag-select-item:hover { background: var(--bg-tertiary); }
+.tag-select-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.tag-select-name { font-size: 14px; font-weight: 500; }
 </style>

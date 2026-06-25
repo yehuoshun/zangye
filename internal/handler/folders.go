@@ -203,6 +203,10 @@ type FolderStatsResponse struct {
 	FolderCount  int   `json:"folder_count"`
 	FileCount    int   `json:"file_count"`
 	TotalSize    int64 `json:"total_size"`
+	ImageCount   int   `json:"image_count"`
+	VideoCount   int   `json:"video_count"`
+	AudioCount   int   `json:"audio_count"`
+	OtherCount   int   `json:"other_count"`
 }
 
 // Stats GET /api/folders/{id}/stats — 获取文件夹统计（递归子文件夹）
@@ -254,6 +258,31 @@ func (h *FoldersHandler) Stats(w http.ResponseWriter, r *http.Request) {
 		if !scanRow(w, h.DB.QueryRow(query, args...), &stats.FileCount, &stats.TotalSize) {
 			return
 		}
+
+		// 分类统计
+		query2, args2 := buildInQuery(
+			"SELECT COUNT(*) FROM files WHERE mime_type LIKE 'image/%' AND folder_id IN",
+			allFolderIDs,
+		)
+		scanRow(w, h.DB.QueryRow(query2, args2...), &stats.ImageCount)
+
+		query3, args3 := buildInQuery(
+			"SELECT COUNT(*) FROM files WHERE mime_type LIKE 'video/%' AND folder_id IN",
+			allFolderIDs,
+		)
+		scanRow(w, h.DB.QueryRow(query3, args3...), &stats.VideoCount)
+
+		query4, args4 := buildInQuery(
+			"SELECT COUNT(*) FROM files WHERE mime_type LIKE 'audio/%' AND folder_id IN",
+			allFolderIDs,
+		)
+		scanRow(w, h.DB.QueryRow(query4, args4...), &stats.AudioCount)
+
+		query5, args5 := buildInQuery(
+			"SELECT COUNT(*) FROM files WHERE mime_type NOT LIKE 'image/%' AND mime_type NOT LIKE 'video/%' AND mime_type NOT LIKE 'audio/%' AND folder_id IN",
+			allFolderIDs,
+		)
+		scanRow(w, h.DB.QueryRow(query5, args5...), &stats.OtherCount)
 	}
 
 	writeJSON(w, http.StatusOK, stats)

@@ -20,21 +20,26 @@
 │         ▼                       ▼                  │
 │  ┌──────────────┐  ┌───────────────────────────┐ │
 │  │  Handler 层   │  │  嵌入的前端 SPA           │ │
-│  │  (dashboard) │  │  (frontend/dist/)          │ │
-│  └──────┬───────┘  └───────────────────────────┘ │
+│  │  (dashboard, │  │  (frontend/dist/)          │ │
+│  │   files,     │  │                            │ │
+│  │   folders,   │  └───────────────────────────┘ │
+│  │   tags,      │                                 │
+│  │   file_tags, │                                 │
+│  │   settings)  │                                 │
+│  └──────┬───────┘                                 │
 │         │                                          │
 └─────────┼──────────────────────────────────────────┘
           │
           ▼
 ┌──────────────────────────────────────────────────┐
 │              MySQL 8.0 (zang_ye)                  │
-│  ┌────────────┐ ┌──────┐ ┌───────┐ ┌──────────┐ │
-│  │collections │ │files │ │ tags  │ │ settings │ │
-│  └────────────┘ └──────┘ └───┬───┘ └──────────┘ │
-│                              │                    │
-│                        ┌─────┴─────┐              │
-│                        │ file_tags │              │
-│                        └───────────┘              │
+│  ┌──────────┐ ┌──────┐ ┌───────┐ ┌──────────┐  │
+│  │ folders  │ │files │ │ tags  │ │ settings │  │
+│  └──────────┘ └──────┘ └───┬───┘ └──────────┘  │
+│                             │                    │
+│                       ┌─────┴─────┐              │
+│                       │ file_tags │              │
+│                       └───────────┘              │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -54,14 +59,18 @@
   - 自动执行建表语句（幂等）
   - 连接健康检查
 - **`schema.sql`**：表结构定义
-  - 5 张表：collections, files, tags, file_tags, settings
+  - 5 张表：folders, files, tags, file_tags, settings
   - 使用 InnoDB 引擎，支持外键和级联删除
 
 ### 3. Handler 层 (`internal/handler/`)
 
-- **`dashboard.go`**：仪表盘 API
-  - `GET /api/dashboard/stats` — 查询统计数据
-  - 通过依赖注入获取 `*sql.DB`
+- **`dashboard.go`**：仪表盘 API — `GET /api/dashboard/stats`
+- **`settings.go`**：设置 API — `GET/PUT /api/settings`
+- **`folders.go`**：文件夹 CRUD + 递归统计（含分类）
+- **`files.go`**：文件 CRUD + folder_id 过滤
+- **`tags.go`**：标签 CRUD
+- **`file_tags.go`**：文件-标签关联（获取/设置/添加/移除）
+- **`response.go`**：公共工具（writeJSON, writeError, scanRow, closeRows, buildInQuery）
 
 ### 4. 前端层 (`frontend/`)
 
@@ -77,22 +86,22 @@
 浏览器 → GET /api/dashboard/stats
     → http.ServeMux 路由匹配
     → DashboardHandler.Stats()
-    → MySQL 查询（4 次 COUNT/SUM）
+    → MySQL 查询
     → JSON 编码响应
     → 浏览器解析 JSON
-    → DashboardPage 组件更新视图
+    → 组件更新视图
 ```
 
 ### SPA 请求流
 
 ```
-浏览器 → GET /dashboard
+浏览器 → GET /files
     → http.ServeMux 匹配 "/" 路由
     → spaHandler.ServeHTTP()
-    → 尝试打开 /dashboard 文件 → 不存在
+    → 尝试打开 /files 文件 → 不存在
     → 回退到 index.html
     → 浏览器加载 Vue SPA
-    → Vue Router 解析 /dashboard → 渲染 DashboardPage
+    → Vue Router 解析 /files → 渲染 FilesPage
 ```
 
 ## 设计决策
@@ -105,3 +114,5 @@
 | 自动建表 | 零配置启动，无需手动执行 SQL |
 | 连接池配置 | 控制数据库资源，防止连接泄漏 |
 | 优雅关闭 | 等待当前请求处理完毕再退出 |
+| 动态 SQL 更新 | 只更新传入的字段，避免覆盖未传字段 |
+| 文件标签事务 | 全量设置标签使用事务（删+插），保证原子性 |

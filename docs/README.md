@@ -48,7 +48,13 @@ zangye/
 │   │   ├── mysql.go        # MySQL 连接 + 自动建表
 │   │   └── schema.sql      # 数据库表结构
 │   └── handler/
-│       └── dashboard.go    # 仪表盘 API 处理器
+│       ├── dashboard.go    # 仪表盘 API
+│       ├── settings.go     # 设置 API
+│       ├── folders.go      # 文件夹 CRUD + 递归统计
+│       ├── files.go        # 文件 CRUD + folder_id 过滤
+│       ├── tags.go         # 标签 CRUD
+│       ├── file_tags.go    # 文件-标签关联
+│       └── response.go     # 公共工具函数
 ├── frontend/
 │   ├── package.json        # 前端依赖
 │   ├── vite.config.ts      # Vite 构建配置
@@ -62,11 +68,18 @@ zangye/
 │       ├── api/
 │       │   └── request.ts  # HTTP 请求封装
 │       ├── features/
-│       │   └── dashboard/  # 仪表盘功能模块
+│       │   ├── dashboard/  # 仪表盘模块
+│       │   ├── files/      # 文件模块（含标签关联）
+│       │   ├── folders/    # 文件夹模块
+│       │   ├── tags/       # 标签模块
+│       │   └── settings/   # 设置模块
 │       ├── layouts/
 │       │   └── MainLayout.vue  # 主布局
 │       ├── pages/
-│       │   └── Dashboard/  # 仪表盘页面
+│       │   ├── Dashboard/  # 仪表盘页面
+│       │   ├── Files/      # 文件管理页面
+│       │   ├── Tags/       # 标签管理页面
+│       │   └── Settings/   # 设置页面
 │       └── styles/
 │           └── global.css  # 全局样式
 └── docs/                   # 项目文档
@@ -80,7 +93,8 @@ zangye/
 
 ## 核心功能
 
-- **集合管理**：树形结构组织文件，支持嵌套子集合
-- **标签系统**：为文件添加标签，支持多对多关联
-- **仪表盘**：展示文件总数、集合数、标签数、存储空间等统计信息
-- **单文件部署**：前端嵌入后端，编译后无需额外文件
+- **文件夹管理**：树形结构组织文件，支持嵌套子文件夹，右键菜单操作
+- **文件管理**：网格/列表双视图，面包屑导航，按文件夹过滤，多路径批量创建
+- **标签系统**：为文件打标签/去标签，支持多对多关联，10 色选择器
+- **文件夹详情**：BFS 递归统计文件数、总大小，以及图片/视频/音频/其他分类统计
+- **仪表盘**：7 张统计卡片，存储空间支持 TB/GB/MB/KB/B 5 维度拆分展示

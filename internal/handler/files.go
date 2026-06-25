@@ -49,10 +49,22 @@ type FileUpdateRequest struct {
 }
 
 // List GET /api/files — 获取文件列表
+// 支持 ?folder_id=xxx 过滤指定文件夹下的文件
 func (h *FilesHandler) List(w http.ResponseWriter, r *http.Request) {
-	rows, err := h.DB.Query(
-		"SELECT id, folder_id, path, display_name, file_size, mime_type, file_mtime, sort_order, created_at FROM files ORDER BY sort_order, created_at DESC",
-	)
+	folderID := r.URL.Query().Get("folder_id")
+
+	var rows *sql.Rows
+	var err error
+	if folderID == "" {
+		rows, err = h.DB.Query(
+			"SELECT id, folder_id, path, display_name, file_size, mime_type, file_mtime, sort_order, created_at FROM files ORDER BY sort_order, created_at DESC",
+		)
+	} else {
+		rows, err = h.DB.Query(
+			"SELECT id, folder_id, path, display_name, file_size, mime_type, file_mtime, sort_order, created_at FROM files WHERE folder_id = ? ORDER BY sort_order, created_at DESC",
+			folderID,
+		)
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "查询文件列表失败")
 		return
@@ -80,7 +92,7 @@ func (h *FilesHandler) Get(w http.ResponseWriter, r *http.Request) {
 	if !scanRow(w, h.DB.QueryRow(
 		"SELECT id, folder_id, path, display_name, file_size, mime_type, file_mtime, sort_order, created_at FROM files WHERE id = ?",
 		id,
-	), &f.ID, &f.FolderID, &f.Path, &f.DisplayName, &f.FileSize, &f.MimeType, &f.SortOrder, &f.CreatedAt) {
+	), &f.ID, &f.FolderID, &f.Path, &f.DisplayName, &f.FileSize, &f.MimeType, &f.FileMtime, &f.SortOrder, &f.CreatedAt) {
 		writeError(w, http.StatusNotFound, "文件不存在")
 		return
 	}
@@ -119,7 +131,7 @@ func (h *FilesHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if !mustScanRow(w, h.DB.QueryRow(
 		"SELECT id, folder_id, path, display_name, file_size, mime_type, file_mtime, sort_order, created_at FROM files WHERE id = ?",
 		id,
-	), &f.ID, &f.FolderID, &f.Path, &f.DisplayName, &f.FileSize, &f.MimeType, &f.SortOrder, &f.CreatedAt) {
+	), &f.ID, &f.FolderID, &f.Path, &f.DisplayName, &f.FileSize, &f.MimeType, &f.FileMtime, &f.SortOrder, &f.CreatedAt) {
 		return
 	}
 
@@ -195,7 +207,7 @@ func (h *FilesHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if !mustScanRow(w, h.DB.QueryRow(
 		"SELECT id, folder_id, path, display_name, file_size, mime_type, file_mtime, sort_order, created_at FROM files WHERE id = ?",
 		id,
-	), &f.ID, &f.FolderID, &f.Path, &f.DisplayName, &f.FileSize, &f.MimeType, &f.SortOrder, &f.CreatedAt) {
+	), &f.ID, &f.FolderID, &f.Path, &f.DisplayName, &f.FileSize, &f.MimeType, &f.FileMtime, &f.SortOrder, &f.CreatedAt) {
 		return
 	}
 

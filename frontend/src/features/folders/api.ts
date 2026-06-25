@@ -11,6 +11,10 @@ export interface FolderStats {
   folder_count: number
   file_count: number
   total_size: number
+  image_count: number
+  video_count: number
+  audio_count: number
+  other_count: number
 }
 
 const BASE = '/api/folders'
