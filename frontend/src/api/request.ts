@@ -1,30 +1,57 @@
-/**
- * request.ts — HTTP 请求封装
- *
- * 基于 fetch API 的轻量请求工具，提供类型安全的 GET 请求。
- * 所有 API 调用集中通过此模块，便于统一处理错误、添加认证头等。
- *
- * 使用方式：
- *   import { get } from '@/api/request'
- *   const data = await get<MyType>('/api/endpoint')
- */
+// HTTP 请求封装
+// 统一错误处理、JSON 解析
+// 类比 Axios，但使用 fetch API
 
-// 生产环境中前端和后端在同一域名下，无需设置 base URL
-const BASE = ''
+const BASE_URL = '/api'
 
-/**
- * 发送 GET 请求并返回 JSON 解析后的数据。
- *
- * @param url  - API 路径（相对于 BASE）
- * @returns Promise<T> - 解析后的响应数据
- * @throws  Error - 当 HTTP 状态码非 2xx 时抛出
- *
- * @example
- *   const stats = await get<DashboardStats>('/api/dashboard/stats')
- */
-export async function get<T>(url: string): Promise<T> {
-  const res = await fetch(BASE + url)
-  // 非 2xx 状态码视为错误
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.json()
+interface RequestOptions {
+  method?: string
+  body?: any
+  headers?: Record<string, string>
 }
+
+class ApiError extends Error {
+  status: number
+  constructor(message: string, status: number) {
+    super(message)
+    this.status = status
+  }
+}
+
+async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const { method = 'GET', body, headers = {} } = options
+
+  const config: RequestInit = {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      ...headers,
+    },
+  }
+
+  if (body && method !== 'GET') {
+    config.body = JSON.stringify(body)
+  }
+
+  const response = await fetch(`${BASE_URL}${path}`, config)
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: '请求失败' }))
+    throw new ApiError(errorData.error || '请求失败', response.status)
+  }
+
+  // 处理空响应
+  const text = await response.text()
+  if (!text) return {} as T
+
+  return JSON.parse(text) as T
+}
+
+// 获取列表响应（含 total/page/size）
+async function requestList<T>(path: string, options: RequestOptions = {}): Promise<{ data: T[]; total: number; page: number; size: number }> {
+  const result = await request<{ data: T[]; total: number; page: number; size: number }>(path, options)
+  return result
+}
+
+export { request, requestList, ApiError }
+export default { request, requestList }

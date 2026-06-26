@@ -1,38 +1,27 @@
-/**
- * features/tags/api.ts — 标签管理 API 调用
- */
+import { request } from '@/api/request'
+import type { TagItem } from './types'
 
-import type { TagItem, TagCreateRequest, TagUpdateRequest } from './types'
-
-const BASE = '/api/tags'
-
-export async function fetchTags(): Promise<TagItem[]> {
-  const res = await fetch(BASE)
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.json()
+// 获取所有标签
+export function getTags(): Promise<TagItem[]> {
+  return request<TagItem[]>('/tags')
 }
 
-export async function createTag(data: TagCreateRequest): Promise<TagItem> {
-  const res = await fetch(BASE, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.json()
+// 获取标签详情
+export function getTag(id: string): Promise<TagItem> {
+  return request<TagItem>(`/tags/${id}`)
 }
 
-export async function updateTag(id: string, data: TagUpdateRequest): Promise<TagItem> {
-  const res = await fetch(`${BASE}/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.json()
+// 创建标签
+export function createTag(name: string): Promise<TagItem> {
+  return request<TagItem>('/tags', { method: 'POST', body: { name } })
 }
 
-export async function deleteTag(id: string): Promise<void> {
-  const res = await fetch(`${BASE}/${id}`, { method: 'DELETE' })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+// 更新标签
+export function updateTag(id: string, name: string, color?: string): Promise<TagItem> {
+  return request<TagItem>(`/tags/${id}`, { method: 'PUT', body: { name, color } })
+}
+
+// 删除标签
+export function deleteTag(id: string): Promise<void> {
+  return request<void>(`/tags/${id}`, { method: 'DELETE' })
 }

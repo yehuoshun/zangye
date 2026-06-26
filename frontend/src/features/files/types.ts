@@ -1,45 +1,34 @@
-/**
- * features/files/types.ts — 文件管理类型定义
- */
-
-/**
- * 文件 API 响应
- * 对应后端 handler.FileResponse
- */
+// 文件 API 类型定义
 export interface FileItem {
   id: string
-  folder_id: string
-  path: string
-  display_name: string | null
+  folder_id: string | null
+  name: string
+  paths: string | null
+  file_type: string
   file_size: number
-  mime_type: string | null
-  file_mtime: string | null
-  sort_order: number
+  description: string | null
+  deleted_at: string | null
   created_at: string
+  updated_at: string
+  tags: TagItem[]
 }
 
-/**
- * 创建文件请求体
- */
-export interface FileCreateRequest {
-  folder_id: string
-  path: string
-  display_name?: string | null
-  file_size?: number
-  mime_type?: string | null
-  file_mtime?: string | null
-  sort_order?: number
+export interface TagItem {
+  id: string
+  name: string
+  color: string
+  created_at: string
+  updated_at: string
 }
 
-/**
- * 更新文件请求体（所有字段可选）
- */
-export interface FileUpdateRequest {
-  folder_id?: string | null
-  path?: string | null
-  display_name?: string | null
-  file_size?: number | null
-  mime_type?: string | null
-  file_mtime?: string | null
-  sort_order?: number | null
+export interface FileQuery {
+  folder_id?: string
+  keyword?: string
+  type?: string
+  tag_id?: string
+  order_by?: string
+  order_dir?: string
+  page?: number
+  page_size?: number
+  trash?: boolean
 }

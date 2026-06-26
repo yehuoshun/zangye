@@ -1,82 +1,59 @@
-<!--
-  TagsPage.vue — 标签管理页面
-
-  支持标签的创建、编辑、删除，颜色选择。
--->
-
 <template>
   <div class="tags-page">
     <div class="page-header">
-      <h1 class="page-title">标签管理</h1>
-      <button class="btn btn-primary" @click="openCreate">+ 新建标签</button>
+      <h2 class="page-title">标签管理</h2>
+      <div class="tag-create" style="display: flex; gap: 8px;">
+        <input v-model="newTagName" class="input" placeholder="新标签名称..." @keyup.enter="handleCreate" />
+        <button class="btn btn-primary" @click="handleCreate">创建</button>
+      </div>
     </div>
 
-    <!-- 标签网格 -->
-    <div class="tag-grid" v-if="tags.length">
-      <div
-        v-for="t in tags"
-        :key="t.id"
-        class="tag-card"
-        :style="{ borderLeftColor: t.color }"
-      >
-        <div class="tag-dot" :style="{ background: t.color }"></div>
-        <span class="tag-name">{{ t.name }}</span>
-        <div class="tag-actions">
-          <button class="btn btn-sm" @click="openEdit(t)">编辑</button>
-          <button class="btn btn-sm btn-danger" @click="confirmDelete(t)">删除</button>
+    <div v-if="loading" class="loading">加载中...</div>
+
+    <div v-else class="tags-grid">
+      <div v-for="tag in tags" :key="tag.id" class="tag-card">
+        <div class="tag-color-bar" :style="{ background: tag.color }"></div>
+        <div class="tag-card-body">
+          <div class="tag-card-header">
+            <span class="tag-name">{{ tag.name }}</span>
+            <span class="tag-count">{{ tag.file_count || 0 }} 个文件</span>
+          </div>
+          <div class="tag-card-actions">
+            <button class="btn btn-sm btn-secondary" @click="editTag(tag)">编辑</button>
+            <button class="btn btn-sm btn-danger" @click="handleDelete(tag.id)">删除</button>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- 空状态 -->
-    <div class="empty-state" v-else>
-      <span class="empty-icon">🏷️</span>
-      <span class="empty-text">还没有标签，点击上方按钮创建</span>
+    <div v-if="tags.length === 0 && !loading" class="empty-state">
+      <div class="empty-state-icon">🏷️</div>
+      <div class="empty-state-text">暂无标签，输入名称创建</div>
     </div>
 
-    <!-- 新建/编辑弹窗 -->
-    <div class="modal-overlay" v-if="showModal" @click.self="closeModal">
-      <div class="modal modal-sm">
+    <!-- 编辑弹窗 -->
+    <div v-if="editingTag" class="modal-overlay" @click.self="editingTag = null">
+      <div class="modal-content">
         <div class="modal-header">
-          <h2>{{ editing ? '编辑标签' : '新建标签' }}</h2>
-          <button class="btn-close" @click="closeModal">✕</button>
+          <h3 class="modal-title">编辑标签</h3>
+          <button class="modal-close" @click="editingTag = null">&times;</button>
         </div>
-        <div class="modal-body">
+        <div class="form">
           <div class="form-group">
-            <label>标签名称 <span class="required">*</span></label>
-            <input v-model="form.name" class="form-input" placeholder="输入标签名称" @keyup.enter="save" />
+            <label>标签名称</label>
+            <input v-model="editForm.name" class="input" />
           </div>
           <div class="form-group">
             <label>颜色</label>
-            <div class="color-picker">
-              <button
-                v-for="c in colors"
-                :key="c"
-                class="color-swatch"
-                :class="{ selected: form.color === c }"
-                :style="{ background: c }"
-                @click="form.color = c"
-              />
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <input v-model="editForm.color" class="input" style="width: 100px;" />
+              <span class="color-preview" :style="{ background: editForm.color }"></span>
             </div>
           </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn" @click="closeModal">取消</button>
-          <button class="btn btn-primary" @click="save" :disabled="!form.name">保存</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 删除确认 -->
-    <div class="modal-overlay" v-if="showDeleteConfirm" @click.self="showDeleteConfirm = false">
-      <div class="modal modal-sm">
-        <div class="modal-header"><h2>确认删除</h2></div>
-        <div class="modal-body">
-          <p>确定要删除标签「{{ deleteTarget?.name }}」吗？关联的文件标签也会被移除。</p>
-        </div>
-        <div class="modal-footer">
-          <button class="btn" @click="showDeleteConfirm = false">取消</button>
-          <button class="btn btn-danger" @click="doDelete">删除</button>
+          <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;">
+            <button class="btn btn-secondary" @click="editingTag = null">取消</button>
+            <button class="btn btn-primary" @click="handleUpdate">保存</button>
+          </div>
         </div>
       </div>
     </div>
@@ -84,95 +61,89 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
+import { getTags, createTag, updateTag, deleteTag } from '@/features/tags/api'
 import type { TagItem } from '@/features/tags/types'
-import { fetchTags, createTag, updateTag, deleteTag } from '@/features/tags/api'
-
-const colors = [
-  '#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6',
-  '#3b82f6', '#6366f1', '#a855f7', '#ec4899', '#6b7280',
-]
 
 const tags = ref<TagItem[]>([])
-const showModal = ref(false)
-const editing = ref<TagItem | null>(null)
-const form = reactive({ name: '', color: colors[5] }) // 默认蓝色
+const loading = ref(false)
+const newTagName = ref('')
+const editingTag = ref<TagItem | null>(null)
+const editForm = ref({ name: '', color: '' })
 
-const showDeleteConfirm = ref(false)
-const deleteTarget = ref<TagItem | null>(null)
-
-onMounted(loadTags)
+onMounted(() => {
+  loadTags()
+})
 
 async function loadTags() {
+  loading.value = true
   try {
-    tags.value = await fetchTags()
+    tags.value = await getTags()
   } catch (e) {
-    console.error('加载标签失败', e)
+    console.error('加载标签失败:', e)
+  } finally {
+    loading.value = false
   }
 }
 
-function openCreate() {
-  editing.value = null
-  form.name = ''
-  form.color = colors[5]
-  showModal.value = true
-}
-
-function openEdit(t: TagItem) {
-  editing.value = t
-  form.name = t.name
-  form.color = t.color
-  showModal.value = true
-}
-
-function closeModal() {
-  showModal.value = false
-}
-
-async function save() {
-  if (!form.name) return
+async function handleCreate() {
+  if (!newTagName.value.trim()) return
   try {
-    if (editing.value) {
-      await updateTag(editing.value.id, { name: form.name, color: form.color })
-    } else {
-      await createTag({ name: form.name, color: form.color })
-    }
-    showModal.value = false
-    await loadTags()
+    await createTag(newTagName.value.trim())
+    newTagName.value = ''
+    loadTags()
   } catch (e) {
-    console.error('保存标签失败', e)
+    console.error('创建标签失败:', e)
   }
 }
 
-function confirmDelete(t: TagItem) {
-  deleteTarget.value = t
-  showDeleteConfirm.value = true
+function editTag(tag: TagItem) {
+  editingTag.value = tag
+  editForm.value = { name: tag.name, color: tag.color }
 }
 
-async function doDelete() {
-  if (!deleteTarget.value) return
+async function handleUpdate() {
+  if (!editingTag.value || !editForm.value.name.trim()) return
   try {
-    await deleteTag(deleteTarget.value.id)
-    showDeleteConfirm.value = false
-    await loadTags()
+    await updateTag(editingTag.value.id, editForm.value.name, editForm.value.color)
+    editingTag.value = null
+    loadTags()
   } catch (e) {
-    console.error('删除标签失败', e)
+    console.error('更新标签失败:', e)
+  }
+}
+
+async function handleDelete(id: string) {
+  if (!confirm('确定删除此标签？')) return
+  try {
+    await deleteTag(id)
+    loadTags()
+  } catch (e) {
+    console.error('删除标签失败:', e)
   }
 }
 </script>
 
 <style scoped>
-.tags-page { max-width: 800px; }
+.tags-page {
+  max-width: 800px;
+}
 
 .page-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 12px;
 }
-.page-title { font-size: 22px; font-weight: 600; }
 
-.tag-grid {
+.page-title {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.tags-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 12px;
@@ -180,63 +151,66 @@ async function doDelete() {
 
 .tag-card {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-left: 4px solid;
-  border-radius: 8px;
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  transition: all var(--transition-fast);
 }
 
-.tag-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
+.tag-card:hover {
+  border-color: var(--accent-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.tag-color-bar {
+  width: 6px;
   flex-shrink: 0;
 }
 
-.tag-name {
+.tag-card-body {
   flex: 1;
-  font-size: 15px;
-  font-weight: 500;
+  padding: 16px;
 }
 
-.tag-actions {
+.tag-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.tag-name {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.tag-count {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.tag-card-actions {
   display: flex;
   gap: 4px;
 }
 
-.color-picker {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+.form-group {
+  margin-bottom: 12px;
 }
 
-.color-swatch {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: 2px solid transparent;
-  cursor: pointer;
-  transition: all .15s;
-}
-.color-swatch:hover {
-  transform: scale(1.15);
-}
-.color-swatch.selected {
-  border-color: var(--text-primary);
-  box-shadow: 0 0 0 2px var(--bg-primary);
+.form-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
 }
 
-/* 复用公共样式 */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 60px 0;
-  color: var(--text-muted);
+.color-preview {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--border-radius-sm);
+  border: 1px solid var(--border-color);
 }
-.empty-icon { font-size: 48px; margin-bottom: 12px; }
-.empty-text { font-size: 15px; }
 </style>

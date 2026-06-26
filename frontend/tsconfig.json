@@ -1,33 +1,24 @@
-/**
- * tsconfig.json — TypeScript 编译配置
- *
- * 为藏叶前端项目配置 TypeScript 编译器选项：
- *   - 目标 ES2020，模块系统 ESNext
- *   - 严格模式开启
- *   - JSX 保留（由 Vue 编译器处理）
- *   - 路径别名支持
- *
- * Vite 使用此配置进行类型检查（不会生成 .js 文件，noEmit: true）。
- * Vue 编译由 @vitejs/plugin-vue 在构建时处理。
- */
-
 {
   "compilerOptions": {
-    "target": "ES2020",                    // 编译目标：支持现代浏览器
-    "module": "ESNext",                    // 模块系统：ES 模块
-    "moduleResolution": "bundler",         // 模块解析：使用打包器模式（Vite/Rollup）
-    "strict": true,                        // 启用所有严格类型检查
-    "jsx": "preserve",                     // JSX 保持原样（Vue 编译器处理）
-    "resolveJsonModule": true,             // 允许导入 JSON 文件
-    "isolatedModules": true,               // 每个文件独立编译（Vite/esbuild 要求）
-    "esModuleInterop": true,               // 兼容 CommonJS 模块的默认导出
-    "lib": ["ES2020", "DOM", "DOM.Iterable"], // 包含的类型库
-    "skipLibCheck": true,                  // 跳过第三方类型检查（加快编译）
-    "noEmit": true,                        // 不生成输出文件（Vite 负责构建）
-    "baseUrl": ".",                        // 基础路径，用于解析非相对路径
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "preserve",
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
     "paths": {
-      "@/*": ["src/*"]                     // @ 别名映射到 src 目录
+      "@/*": ["./src/*"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.vue", "vite.config.ts"]  // 包含的文件
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"],
+  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }]
 }

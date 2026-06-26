@@ -1,75 +1,49 @@
-// Package handler 提供藏叶的 HTTP 请求处理器。
-//
-// 每个 Handler 负责一个功能域，通过依赖注入获取数据库连接。
-// 本包使用 Go 标准库 net/http，不依赖第三方 Web 框架。
+// Package handler 提供 HTTP 请求处理器
+// 类比 Java 的 Controller 层
+// Go 的 http.HandlerFunc 是函数类型，满足 http.Handler 接口
 package handler
 
 import (
-	"database/sql"
 	"encoding/json"
-	"log"
 	"net/http"
-	"strings"
 )
 
-// writeJSON 将数据序列化为 JSON 并写入响应。
-// 序列化失败时返回 500 并记录日志。
-func writeJSON(w http.ResponseWriter, status int, data any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
+// writeJSON 写入 JSON 响应
+// 统一响应格式，类比 Spring 的 @ResponseBody + ResponseEntity
+func writeJSON(w http.ResponseWriter, data interface{}) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	if err := json.NewEncoder(w).Encode(data); err != nil {
-		log.Printf("JSON 编码失败: %v", err)
+		http.Error(w, `{"error":"序列化响应失败"}`, http.StatusInternalServerError)
 	}
 }
 
-// writeError 返回统一的错误 JSON 响应。
-func writeError(w http.ResponseWriter, status int, message string) {
-	writeJSON(w, status, map[string]string{"error": message})
+// writeError 写入错误响应
+// 统一错误格式：{"error": "描述"}
+func writeError(w http.ResponseWriter, status int, msg string) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }
 
-// scanRow 执行 QueryRow 并将结果写入 dest。
-// 返回 true 表示找到行，false 表示没有行（sql.ErrNoRows）。
-// 其他错误通过 HTTP 响应返回。
-func scanRow(w http.ResponseWriter, row *sql.Row, dest ...any) bool {
-	if err := row.Scan(dest...); err != nil {
-		if err == sql.ErrNoRows {
-			return false
-		}
-		writeError(w, http.StatusInternalServerError, "数据库查询失败")
-		return false
-	}
-	return true
+// writeJSONList 写入带总数的列表响应
+// 格式：{"data": [...], "total": 100, "page": 1, "size": 50}
+func writeJSONList(w http.ResponseWriter, data interface{}, total int64, page, size int) {
+	writeJSON(w, map[string]interface{}{
+		"data":  data,
+		"total": total,
+		"page":  page,
+		"size":  size,
+	})
 }
 
-// mustScanRow 执行 QueryRow 扫描——找不到行时返回 500。
-// 用于 Create/Update 后回查，此时数据一定存在。
-func mustScanRow(w http.ResponseWriter, row *sql.Row, dest ...any) bool {
-	if err := row.Scan(dest...); err != nil {
-		if err == sql.ErrNoRows {
-			writeError(w, http.StatusInternalServerError, "创建/更新后回查失败: 记录不存在")
-		} else {
-			writeError(w, http.StatusInternalServerError, "数据库查询失败")
-		}
-		return false
-	}
-	return true
+// writeOK 写入成功响应
+func writeOK(w http.ResponseWriter) {
+	writeJSON(w, map[string]string{"status": "ok"})
 }
 
-// closeRows 安全关闭 sql.Rows，记录关闭错误。
-// 用于替换 defer rows.Close()，确保错误被捕获。
-func closeRows(rows *sql.Rows) {
-	if err := rows.Close(); err != nil {
-		log.Printf("关闭 rows 失败: %v", err)
-	}
-}
-
-// buildInQuery 构建 SQL IN 查询，如 "SELECT ... WHERE id IN (?, ?, ?)"。
-func buildInQuery(prefix string, ids []string) (string, []any) {
-	placeholders := make([]string, len(ids))
-	args := make([]any, len(ids))
-	for i, id := range ids {
-		placeholders[i] = "?"
-		args[i] = id
-	}
-	return prefix + " (" + strings.Join(placeholders, ",") + ")", args
+// parseJSONBody 解析请求体 JSON 到指定结构体
+// 类比 Spring 的 @RequestBody
+func parseJSONBody(r *http.Request, v interface{}) error {
+	defer r.Body.Close()
+	return json.NewDecoder(r.Body).Decode(v)
 }

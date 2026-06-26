@@ -1,0 +1,40 @@
+name: Build ZangYe
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go 1.22
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Setup Node 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+
+      - name: Build Go binary (Windows amd64)
+        run: GOOS=windows GOARCH=amd64 go build -o zangye.exe -ldflags="-s -w" .
+        working-directory: .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zangye-windows-amd64
+          path: zangye.exe

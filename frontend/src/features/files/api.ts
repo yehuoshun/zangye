@@ -1,106 +1,74 @@
-/**
- * features/files/api.ts — 文件管理 API 调用
- */
+import { request, requestList } from '@/api/request'
+import type { FileItem, FileQuery } from './types'
 
-import type { FileItem, FileCreateRequest, FileUpdateRequest } from './types'
+// 查询文件列表
+export function getFiles(query: FileQuery) {
+  const params = new URLSearchParams()
+  if (query.folder_id) params.set('folder_id', query.folder_id)
+  if (query.keyword) params.set('keyword', query.keyword)
+  if (query.type) params.set('type', query.type)
+  if (query.tag_id) params.set('tag_id', query.tag_id)
+  if (query.order_by) params.set('order_by', query.order_by)
+  if (query.order_dir) params.set('order_dir', query.order_dir)
+  if (query.page) params.set('page', String(query.page))
+  if (query.page_size) params.set('page_size', String(query.page_size))
+  if (query.trash) params.set('trash', 'true')
 
-const BASE = '/api/files'
-
-/**
- * 获取文件列表
- * @param folderId 可选，按文件夹过滤
- */
-export async function fetchFiles(folderId?: string): Promise<FileItem[]> {
-  const url = folderId ? `${BASE}?folder_id=${encodeURIComponent(folderId)}` : BASE
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.json()
+  const qs = params.toString()
+  return requestList<FileItem>(`/files${qs ? '?' + qs : ''}`)
 }
 
-/**
- * 获取单个文件详情
- */
-export async function fetchFile(id: string): Promise<FileItem> {
-  const res = await fetch(`${BASE}/${id}`)
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.json()
+// 获取文件详情
+export function getFile(id: string): Promise<FileItem> {
+  return request<FileItem>(`/files/${id}`)
 }
 
-/**
- * 创建文件
- */
-export async function createFile(data: FileCreateRequest): Promise<FileItem> {
-  const res = await fetch(BASE, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.json()
+// 创建文件
+export function createFile(data: Partial<FileItem> & { name: string }): Promise<FileItem> {
+  return request<FileItem>('/files', { method: 'POST', body: data })
 }
 
-/**
- * 更新文件
- */
-export async function updateFile(id: string, data: FileUpdateRequest): Promise<FileItem> {
-  const res = await fetch(`${BASE}/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.json()
+// 更新文件
+export function updateFile(id: string, data: Partial<FileItem>): Promise<FileItem> {
+  return request<FileItem>(`/files/${id}`, { method: 'PUT', body: data })
 }
 
-/**
- * 删除文件
- */
-export async function deleteFile(id: string): Promise<void> {
-  const res = await fetch(`${BASE}/${id}`, { method: 'DELETE' })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+// 删除文件（软删除）
+export function deleteFile(id: string): Promise<void> {
+  return request<void>(`/files/${id}`, { method: 'DELETE' })
 }
 
-// ===== 文件-标签关联 =====
-
-import type { TagItem } from '@/features/tags/types'
-
-/**
- * 获取文件的标签列表
- */
-export async function fetchFileTags(fileId: string): Promise<TagItem[]> {
-  const res = await fetch(`${BASE}/${fileId}/tags`)
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.json()
+// 获取文件标签
+export function getFileTags(id: string) {
+  return request<any[]>(`/files/${id}/tags`)
 }
 
-/**
- * 全量设置文件标签
- */
-export async function setFileTags(fileId: string, tagIds: string[]): Promise<void> {
-  const res = await fetch(`${BASE}/${fileId}/tags`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tag_ids: tagIds }),
-  })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+// 设置文件标签
+export function setFileTags(id: string, tagIds: string[]): Promise<void> {
+  return request<void>(`/files/${id}/tags`, { method: 'PUT', body: { tag_ids: tagIds } })
 }
 
-/**
- * 给文件添加单个标签
- */
-export async function addFileTag(fileId: string, tagId: string): Promise<void> {
-  const res = await fetch(`${BASE}/${fileId}/tags`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tag_id: tagId }),
-  })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+// 添加文件标签
+export function addFileTag(id: string, tagId: string): Promise<void> {
+  return request<void>(`/files/${id}/tags`, { method: 'POST', body: { tag_id: tagId } })
 }
 
-/**
- * 移除文件的单个标签
- */
-export async function removeFileTag(fileId: string, tagId: string): Promise<void> {
-  const res = await fetch(`${BASE}/${fileId}/tags/${tagId}`, { method: 'DELETE' })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+// 移除文件标签
+export function removeFileTag(id: string, tagId: string): Promise<void> {
+  return request<void>(`/files/${id}/tags?tag_id=${tagId}`, { method: 'DELETE' })
+}
+
+// 获取回收站文件
+export function getTrashFiles() {
+  return requestList<FileItem>('/trash/files')
+}
+
+// 恢复文件
+export function restoreFile(id: string): Promise<void> {
+  return request<void>(`/trash/files/${id}/restore`, { method: 'POST' })
+}
+
+// 彻底删除文件
+export function hardDeleteFile(id: string): Promise<void> {
+  return request<void>(`/trash/files/${id}`, { method: 'DELETE' })
 }

@@ -1,144 +1,72 @@
 # 数据库设计
 
-## 概述
-
-藏叶使用 MySQL 8.0 作为数据存储，数据库名为 `zang_ye`，字符集为 `utf8mb4`，所有表使用 InnoDB 引擎以支持事务和外键。
-
 ## 表结构
 
-### 1. folders（文件夹表）
-
-文件文件夹，支持树形结构（通过 `parent_id` 自引用）。
+### folders (文件夹表)
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `id` | VARCHAR(36) PK | 文件夹唯一标识（UUID） |
-| `name` | VARCHAR(255) NOT NULL | 文件夹名称 |
-| `icon` | VARCHAR(10) DEFAULT '📁' | 文件夹图标（emoji） |
-| `parent_id` | VARCHAR(36) DEFAULT NULL | 父文件夹 ID（NULL = 根目录） |
-| `description` | TEXT DEFAULT NULL | 文件夹描述 |
-| `sort_order` | INT DEFAULT 0 | 排序序号 |
-| `created_at` | TIMESTAMP | 创建时间 |
-| `updated_at` | TIMESTAMP | 更新时间（自动更新） |
+| id | VARCHAR(36) PK | UUID 主键 |
+| name | VARCHAR(255) | 文件夹名称 |
+| parent_id | VARCHAR(36) NULL | 父文件夹 ID |
+| sort_order | INT | 排序序号 |
+| created_at | TIMESTAMP | 创建时间 |
+| updated_at | TIMESTAMP | 更新时间 |
 
-### 2. files（文件表）
-
-记录文件的元信息，每个文件必须属于一个文件夹。
+### files (文件表)
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `id` | VARCHAR(36) PK | 文件唯一标识（UUID） |
-| `folder_id` | VARCHAR(36) FK NOT NULL | 所属文件夹 ID |
-| `path` | VARCHAR(1024) NOT NULL | 文件路径 |
-| `display_name` | VARCHAR(512) DEFAULT NULL | 显示名称 |
-| `file_size` | BIGINT DEFAULT 0 | 文件大小（字节） |
-| `mime_type` | VARCHAR(255) DEFAULT NULL | MIME 类型 |
-| `file_mtime` | TIMESTAMP NULL | 文件实际修改时间 |
-| `sort_order` | INT DEFAULT 0 | 排序序号 |
-| `created_at` | TIMESTAMP | 创建时间 |
+| id | VARCHAR(36) PK | UUID 主键 |
+| folder_id | VARCHAR(36) NULL | 所属文件夹 ID |
+| name | VARCHAR(255) | 文件名 |
+| paths | TEXT NULL | 路径 JSON 数组 |
+| file_type | VARCHAR(32) | 文件类型 |
+| file_size | BIGINT | 文件大小 |
+| description | TEXT NULL | 描述 |
+| deleted_at | TIMESTAMP NULL | 软删除时间 |
+| created_at | TIMESTAMP | 创建时间 |
+| updated_at | TIMESTAMP | 更新时间 |
 
-**外键**：`folder_id → folders(id) ON DELETE CASCADE`
-
-### 3. tags（标签表）
-
-标签用于分类和检索，名称全局唯一。
+### tags (标签表)
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `id` | VARCHAR(36) PK | 标签唯一标识（UUID） |
-| `name` | VARCHAR(128) UNIQUE NOT NULL | 标签名称 |
-| `color` | VARCHAR(32) DEFAULT 'gray' | 标签颜色 |
-| `created_at` | TIMESTAMP | 创建时间 |
+| id | VARCHAR(36) PK | UUID 主键 |
+| name | VARCHAR(64) UNIQUE | 标签名称 |
+| color | VARCHAR(7) | 十六进制颜色 |
+| created_at | TIMESTAMP | 创建时间 |
+| updated_at | TIMESTAMP | 更新时间 |
 
-### 4. file_tags（文件-标签关联表）
-
-多对多关联表，连接 files 和 tags。
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `file_id` | VARCHAR(36) PK, FK | 文件 ID |
-| `tag_id` | VARCHAR(36) PK, FK | 标签 ID |
-
-**联合主键**：`(file_id, tag_id)` — 防止重复关联
-
-**外键**：
-- `file_id → files(id) ON DELETE CASCADE`
-- `tag_id → tags(id) ON DELETE CASCADE`
-
-### 5. settings（设置表）
-
-系统级配置项，键值对存储。
+### file_tags (文件-标签关联)
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `key` | VARCHAR(128) PK | 设置键名 |
-| `value` | TEXT NOT NULL | 设置值 |
+| file_id | VARCHAR(36) PK | 文件 ID |
+| tag_id | VARCHAR(36) PK | 标签 ID |
+| created_at | TIMESTAMP | 创建时间 |
 
-**默认数据**：
+外键：file_id → files(id) ON DELETE CASCADE, tag_id → tags(id) ON DELETE CASCADE
 
-| key | value | 说明 |
-|-----|-------|------|
-| `version` | `1` | 数据库版本号 |
-| `theme` | `dark` | 默认主题（dark/light） |
-| `layout` | `sidebar` | 默认布局模式 |
+### settings (设置表)
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| setting_key | VARCHAR(128) PK | 键名 |
+| setting_value | TEXT | 值（JSON 格式） |
+| updated_at | TIMESTAMP | 更新时间 |
 
 ## ER 图
 
 ```
-┌──────────────┐       ┌──────────────┐
-│   folders    │       │     tags     │
-│──────────────│       │──────────────│
-│ id (PK)      │       │ id (PK)      │
-│ name         │       │ name (UNIQUE)│
-│ icon         │       │ color        │
-│ parent_id ───┼─┐     │ created_at   │
-│ description  │ │     └──────┬───────┘
-│ sort_order   │ │            │
-│ created_at   │ │            │
-│ updated_at   │ │            │
-└──────┬───────┘ │            │
-       │         │            │
-       │ 1:N     │ 自引用     │
-       ▼         │            │
-┌──────────────┐ │            │
-│    files     │ │            │
-│──────────────│ │            │
-│ id (PK)      │ │            │
-│ folder_id    │◄┘            │
-│ path         │              │
-│ display_name │              │
-│ file_size    │              │
-│ mime_type    │              │
-│ file_mtime   │              │
-│ sort_order   │              │
-│ created_at   │              │
-└──────┬───────┘              │
-       │                      │
-       │ N:M                  │
-       ▼                      ▼
-┌──────────────────────────────────────┐
-│             file_tags                │
-│──────────────────────────────────────│
-│ file_id (PK, FK → files.id)          │
-│ tag_id  (PK, FK → tags.id)           │
-└──────────────────────────────────────┘
-
-┌──────────────┐
-│   settings   │
-│──────────────│
-│ key (PK)     │
-│ value        │
-└──────────────┘
+folders ──1:N── files ──N:M── tags
+                    │
+                    └── file_tags (中间表)
 ```
 
-## 级联删除策略
+## 索引
 
-| 操作 | 影响 |
-|------|------|
-| 删除文件夹 | 级联删除该文件夹下所有文件 |
-| 删除文件 | 级联删除该文件的所有标签关联 |
-| 删除标签 | 级联删除该标签的所有文件关联 |
-
-## 初始化
-
-数据库初始化在程序启动时自动完成（`internal/db/mysql.go` 的 `New()` 函数）。所有 `CREATE TABLE` 使用 `IF NOT EXISTS`，确保幂等执行。默认设置通过 `INSERT IGNORE` 插入，不会覆盖已有数据。
+- folders: parent_id, sort_order
+- files: folder_id, file_type, deleted_at, name
+- tags: name (UNIQUE)
+- file_tags: file_id (PK), tag_id (INDEX)

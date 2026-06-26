@@ -1,15 +1,12 @@
+import { request } from '@/api/request'
 import type { Settings } from './types'
-import { get } from '@/api/request'
 
-export function fetchSettings(): Promise<Settings> {
-  return get<Settings>('/api/settings')
+// 获取所有设置
+export function getSettings(): Promise<Settings> {
+  return request<Settings>('/settings')
 }
 
-export async function updateSettings(data: Partial<Settings>): Promise<void> {
-  const res = await fetch('/api/settings', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+// 更新设置
+export function updateSettings(settings: Settings): Promise<void> {
+  return request<void>('/settings', { method: 'PUT', body: settings })
 }

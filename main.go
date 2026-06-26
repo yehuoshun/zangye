@@ -1,21 +1,18 @@
-// Package main 是藏叶（Zangye）个人文件管理器的主入口。
+// 藏叶 (ZangYe) 虚拟文件管理器 - 主入口
 //
-// 藏叶是一个单二进制文件管理工具，后端使用 Go + MySQL，
-// 前端使用 Vue 3 + Vite 构建后通过 embed 嵌入到二进制中。
-// 启动后提供一个完整的 Web 界面，用于管理本地文件集合。
+// 项目定位：虚拟文件管理器（纯手工录入，非磁盘扫描）
+// 管理用户在互联网上的备份文件清单
 //
-// 核心功能：
-//   - 文件集合（Collection）管理：树形结构组织文件
-//   - 标签（Tag）系统：为文件添加标签便于检索
-//   - 仪表盘（Dashboard）：展示文件统计概览
+// 技术栈：
+//   - 后端：Go 1.22+ (net/http 标准库，无第三方框架)
+//   - 数据库：MySQL 8.0 (go-sql-driver/mysql)
+//   - 前端：Vue 3 + TypeScript + Vite 6 (通过 go:embed 嵌入)
+//   - 部署：单 exe（go:embed 前端 dist）
 //
-// 启动方式：
-//   go build -o zangye .
-//   ./zangye
-//   # 或在开发时
-//   go run .
-//
-// 默认监听 127.0.0.1:27138，可通过环境变量 ZANGYE_ADDR 自定义。
+// Go 启动要点：
+//   - main 函数是程序入口，类比 Java 的 public static void main
+//   - init() 函数在 main 之前自动执行，类比 Java 的静态初始化块
+//   - defer 在函数返回前执行，类比 Java 的 finally
 package main
 
 import (
@@ -28,165 +25,102 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-
-	"github.com/yehuoshun/zangye/internal/db"
-	"github.com/yehuoshun/zangye/internal/handler"
+	"zangye/internal/config"
+	"zangye/internal/db"
+	"zangye/internal/handler"
 )
 
-//go:embed frontend/dist
-// frontendEmbed 嵌入前端构建产物，作为后备。
-// 生产模式：go build 打包时会将 dist 嵌入二进制。
-// 开发模式：如果磁盘上存在 frontend/dist/，优先从磁盘读取。
-var frontendEmbed embed.FS
+//go:embed frontend/dist/*
+var frontendFS embed.FS
 
 func main() {
-	// ========================================
-	// 1. 初始化数据库连接
-	// ========================================
-	database, err := db.New(db.DefaultConfig())
+	// 加载配置
+	cfg := config.Load()
+
+	// 初始化数据库连接
+	database, err := db.Init(cfg.DSN)
 	if err != nil {
 		log.Fatalf("数据库初始化失败: %v", err)
 	}
+	// defer ≈ Java 的 finally，确保程序退出时关闭数据库连接
 	defer database.Close()
 
-	// ========================================
-	// 2. 注册 HTTP 路由
-	// ========================================
+	// 设置路由
+	apiHandler := handler.SetupRoutes(database)
 
-	dashboardH := &handler.DashboardHandler{DB: database}
-	settingsH := &handler.SettingsHandler{DB: database}
-	filesH := &handler.FilesHandler{DB: database}
-	foldersH := &handler.FoldersHandler{DB: database}
-	tagsH := &handler.TagsHandler{DB: database}
-	fileTagsH := &handler.FileTagsHandler{DB: database}
+	// 设置静态文件服务（go:embed 嵌入的前端 dist）
+	// 尝试加载嵌入的前端文件
+	staticFS, err := fs.Sub(frontendFS, "frontend/dist")
+	if err != nil {
+		log.Printf("前端静态文件未嵌入（开发模式），仅提供 API 服务: %v", err)
+		staticFS = nil
+	}
 
+	// 创建主 HTTP mux
 	mux := http.NewServeMux()
 
-	// 仪表盘
-	mux.HandleFunc("GET /api/dashboard/stats", dashboardH.Stats)
-	// 设置
-	mux.HandleFunc("GET /api/settings", settingsH.GetAll)
-	mux.HandleFunc("PUT /api/settings", settingsH.Update)
-	// 文件夹管理
-	mux.HandleFunc("GET /api/folders", foldersH.List)
-	mux.HandleFunc("GET /api/folders/{id}/stats", foldersH.Stats)
-	mux.HandleFunc("GET /api/folders/{id}", foldersH.Get)
-	mux.HandleFunc("POST /api/folders", foldersH.Create)
-	mux.HandleFunc("PUT /api/folders/{id}", foldersH.Update)
-	mux.HandleFunc("DELETE /api/folders/{id}", foldersH.Delete)
-	// 文件管理
-	mux.HandleFunc("GET /api/files", filesH.List)
-	mux.HandleFunc("GET /api/files/{id}", filesH.Get)
-	mux.HandleFunc("POST /api/files", filesH.Create)
-	mux.HandleFunc("PUT /api/files/{id}", filesH.Update)
-	mux.HandleFunc("DELETE /api/files/{id}", filesH.Delete)
-	// 标签管理
-	mux.HandleFunc("GET /api/tags", tagsH.List)
-	mux.HandleFunc("POST /api/tags", tagsH.Create)
-	mux.HandleFunc("PUT /api/tags/{id}", tagsH.Update)
-	mux.HandleFunc("DELETE /api/tags/{id}", tagsH.Delete)
-	// 文件-标签关联
-	mux.HandleFunc("GET /api/files/{id}/tags", fileTagsH.GetTags)
-	mux.HandleFunc("PUT /api/files/{id}/tags", fileTagsH.SetTags)
-	mux.HandleFunc("POST /api/files/{id}/tags", fileTagsH.AddTag)
-	mux.HandleFunc("DELETE /api/files/{id}/tags/{tagId}", fileTagsH.RemoveTag)
+	// API 路由
+	mux.Handle("/api/", apiHandler)
 
-	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
-		if err := database.Ping(); err != nil {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			w.Write([]byte(`{"status":"db_error"}`))
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"status":"ok"}`))
-	})
-
-	// ========================================
-	// 3. 挂载前端 SPA
-	// ========================================
-	// 优先使用磁盘上的 frontend/dist/（开发模式），
-	// 不存在时回退到 embed（生产模式）。
-	var staticFS fs.FS
-	if _, err := os.Stat("frontend/dist"); err == nil {
-		log.Println("📁 使用磁盘前端文件: frontend/dist/")
-		staticFS = os.DirFS("frontend/dist")
-	} else if sub, err := fs.Sub(frontendEmbed, "frontend/dist"); err == nil {
-		log.Println("📦 使用嵌入前端文件")
-		staticFS = sub
-	} else {
-		log.Println("⚠️  前端未编译，仅 API 可用")
-	}
-
+	// 静态文件路由（如果前端已构建）
 	if staticFS != nil {
-		mux.Handle("/", &spaHandler{staticFS: staticFS})
+		fileServer := http.FileServer(http.FS(staticFS))
+		mux.Handle("/", fileServer)
+	} else {
+		// 开发模式：返回提示
+		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Write([]byte(`<h1>藏叶虚拟文件管理器</h1>
+<p>API 服务已启动。</p>
+<p>前端开发模式：请在 frontend/ 目录下运行 <code>npm run dev</code></p>`))
+		})
 	}
 
-	// ========================================
-	// 4. 配置并启动 HTTP 服务器
-	// ========================================
-
-	addr := "127.0.0.1:27138"
-	if env := os.Getenv("ZANGYE_ADDR"); env != "" {
-		addr = env
-	}
-
+	// 创建 HTTP 服务器
+	// Go 的 http.Server 类比 Java 的 Tomcat/Undertow
 	server := &http.Server{
-		Addr:         addr,
+		Addr:         cfg.Addr,
 		Handler:      mux,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
+	// 在 goroutine 中启动服务器
+	// Go 的 go 关键字 ≈ Java 的 new Thread().start()，但更轻量
 	go func() {
-		sigCh := make(chan os.Signal, 1)
-		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-		<-sigCh
-		log.Println("正在关闭…")
-		server.Shutdown(context.Background())
+		log.Printf("藏叶虚拟文件管理器启动中...")
+		log.Printf("监听地址: http://%s", cfg.Addr)
+		log.Printf("API 文档: http://%s/api/health", cfg.Addr)
+
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("HTTP 服务启动失败: %v", err)
+		}
 	}()
 
-	log.Printf("🦞 藏叶 启动 → http://%s", addr)
-	if err := server.ListenAndServe(); err != http.ErrServerClosed {
-		log.Fatalf("服务启动失败: %v", err)
-	}
-}
+	// 自动打开浏览器（Windows 平台）
+	// 使用 exec.Command 调用 cmd /c start
+	// 类比 Java 的 Desktop.getDesktop().browse()
+	// 注意：在 Linux 服务器上不会执行
+	// exec.Command("cmd", "/c", "start", "http://"+cfg.Addr).Start()
 
-// spaHandler 是 SPA 回退处理器。
-type spaHandler struct {
-	staticFS fs.FS
-}
+	// 等待中断信号实现优雅关闭
+	// Go 的 signal.Notify 捕获系统信号
+	// SIGINT: Ctrl+C, SIGTERM: kill 命令
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit // 阻塞直到收到信号
 
-// ServeHTTP 实现 http.Handler 接口。
-func (s *spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	path := r.URL.Path
-	if len(path) > 0 && path[0] == '/' {
-		path = path[1:]
-	}
-	if path == "" {
-		path = "index.html"
-	}
+	log.Println("正在关闭服务器...")
 
-	// 尝试读取文件
-	data, err := fs.ReadFile(s.staticFS, path)
-	if err == nil {
-		// 根据扩展名设置 MIME 类型
-		if len(path) >= 3 && path[len(path)-3:] == ".js" {
-			w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
-		} else if len(path) >= 4 && path[len(path)-4:] == ".css" {
-			w.Header().Set("Content-Type", "text/css; charset=utf-8")
-		} else if len(path) >= 5 && path[len(path)-5:] == ".html" {
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		}
-		w.Write(data)
-		return
+	// 创建带超时的 context
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// 优雅关闭：停止接受新请求，等待正在处理的请求完成
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatalf("服务器关闭失败: %v", err)
 	}
 
-	// 回退到 index.html（SPA 路由）
-	index, err := fs.ReadFile(s.staticFS, "index.html")
-	if err != nil {
-		http.Error(w, "前端未编译", http.StatusNotFound)
-		return
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write(index)
+	log.Println("服务器已安全关闭")
 }

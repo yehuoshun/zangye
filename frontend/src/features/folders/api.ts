@@ -1,82 +1,38 @@
-/**
- * features/folders/api.ts — 文件夹管理 API 调用
- */
+import { request } from '@/api/request'
+import type { FolderItem, FolderStats } from './types'
 
-import type { FolderItem, FolderCreateRequest, FolderUpdateRequest } from './types'
-
-/**
- * 文件夹统计信息
- */
-export interface FolderStats {
-  folder_count: number
-  file_count: number
-  total_size: number
-  image_count: number
-  video_count: number
-  audio_count: number
-  other_count: number
+// 获取文件夹树
+export function getFolderTree(): Promise<FolderItem[]> {
+  return request<FolderItem[]>('/folders')
 }
 
-const BASE = '/api/folders'
-
-/**
- * 获取文件夹列表（可选 parent_id 查询子文件夹）
- */
-export async function fetchFolders(parentId?: string): Promise<FolderItem[]> {
-  const url = parentId ? `${BASE}?parent_id=${parentId}` : BASE
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.json()
+// 获取文件夹详情
+export function getFolder(id: string): Promise<FolderItem> {
+  return request<FolderItem>(`/folders/${id}`)
 }
 
-/**
- * 获取单个文件夹详情
- */
-export async function fetchFolder(id: string): Promise<FolderItem> {
-  const res = await fetch(`${BASE}/${id}`)
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.json()
-}
-
-/**
- * 创建文件夹
- */
-export async function createFolder(data: FolderCreateRequest): Promise<FolderItem> {
-  const res = await fetch(BASE, {
+// 创建文件夹
+export function createFolder(name: string, parentId?: string | null): Promise<FolderItem> {
+  return request<FolderItem>('/folders', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+    body: { name, parent_id: parentId || null },
   })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.json()
 }
 
-/**
- * 更新文件夹
- */
-export async function updateFolder(id: string, data: FolderUpdateRequest): Promise<FolderItem> {
-  const res = await fetch(`${BASE}/${id}`, {
+// 更新文件夹
+export function updateFolder(id: string, name: string, parentId?: string | null): Promise<FolderItem> {
+  return request<FolderItem>(`/folders/${id}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+    body: { name, parent_id: parentId || null },
   })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.json()
 }
 
-/**
- * 删除文件夹
- */
-export async function deleteFolder(id: string): Promise<void> {
-  const res = await fetch(`${BASE}/${id}`, { method: 'DELETE' })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+// 删除文件夹
+export function deleteFolder(id: string): Promise<void> {
+  return request<void>(`/folders/${id}`, { method: 'DELETE' })
 }
 
-/**
- * 获取文件夹统计（递归子文件夹）
- */
-export async function fetchFolderStats(id: string): Promise<FolderStats> {
-  const res = await fetch(`${BASE}/${id}/stats`)
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.json()
+// 获取文件夹统计
+export function getFolderStats(id: string): Promise<FolderStats> {
+  return request<FolderStats>(`/folders/${id}/stats`)
 }
