@@ -32,10 +32,21 @@ jobs:
 
       - name: Build Go binary (Windows amd64)
         run: |
-          GOOS=windows GOARCH=amd64 go build -o zangye.exe -ldflags="-s -w" . 2>&1 | tee go-build.log
+          mkdir -p frontend/dist
+          GOOS=windows GOARCH=amd64 go build -v -o zangye.exe -ldflags="-s -w" . 2>&1 | tee /tmp/go-build.log
           if [ ${PIPESTATUS[0]} -ne 0 ]; then
+            echo ""
             echo "=== GO BUILD FAILED ==="
-            cat go-build.log
+            head -100 /tmp/go-build.log
+            echo ""
+            echo "=== Contents of frontend/dist ==="
+            ls -la frontend/dist/ 2>&1
+            echo ""
+            echo "=== go.mod ==="
+            cat go.mod
+            echo ""
+            echo "=== go.sum head ==="
+            head -20 go.sum
             exit 1
           fi
         working-directory: .
