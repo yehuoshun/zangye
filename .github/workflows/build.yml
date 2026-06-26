@@ -31,7 +31,13 @@ jobs:
         working-directory: frontend
 
       - name: Build Go binary (Windows amd64)
-        run: GOOS=windows GOARCH=amd64 go build -o zangye.exe -ldflags="-s -w" .
+        run: |
+          GOOS=windows GOARCH=amd64 go build -o zangye.exe -ldflags="-s -w" . 2>&1 | tee go-build.log
+          if [ ${PIPESTATUS[0]} -ne 0 ]; then
+            echo "=== GO BUILD FAILED ==="
+            cat go-build.log
+            exit 1
+          fi
         working-directory: .
 
       - name: Upload artifact
