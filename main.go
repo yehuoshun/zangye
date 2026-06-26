@@ -18,6 +18,7 @@ package main
 import (
 	"context"
 	"embed"
+	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
@@ -40,8 +41,24 @@ func main() {
 	// 初始化数据库连接
 	database, err := db.Init(cfg.DSN)
 	if err != nil {
-		log.Fatalf("数据库初始化失败: %v", err)
+		log.Printf("数据库连接失败: %v", err)
+		log.Printf("请确保 MySQL 已启动，并已创建数据库（如未创建，请执行: CREATE DATABASE zangye CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;）")
+		log.Printf("您也可以设置环境变量 ZANGYE_DSN 自定义数据库连接")
+		
+		// Windows 下弹错误消息框
+		if err := db.ShowError("数据库连接失败",
+			fmt.Sprintf("无法连接到 MySQL 数据库。\n\n错误: %v\n\n请确保 MySQL 已启动，数据库 'zangye' 已创建。\n\n应用将在 10 秒后关闭。", err)); err == nil {
+			time.Sleep(10 * time.Second)
+		}
+		log.Fatal("程序退出")
 	}
+
+	// 自动建表
+	if err := db.Migrate(database); err != nil {
+		log.Fatalf("自动建表失败: %v", err)
+	}
+	log.Println("数据库表结构初始化完成")
+
 	// defer ≈ Java 的 finally，确保程序退出时关闭数据库连接
 	defer database.Close()
 
