@@ -33,6 +33,10 @@ jobs:
       - name: Build Go binary (Windows amd64)
         run: |
           mkdir -p frontend/dist
+          echo "=== go vet ==="
+          go vet ./... 2>&1 || true
+          echo ""
+          echo "=== go build ==="
           GOOS=windows GOARCH=amd64 go build -v -o zangye.exe -ldflags="-s -w" . 2>&1 | tee /tmp/go-build.log
           if [ ${PIPESTATUS[0]} -ne 0 ]; then
             echo ""
