@@ -27,7 +27,11 @@ jobs:
 
       - name: Build frontend
         run: |
-          mkdir -p dist && echo '<html><body><h1>ZangYe</h1><p>Static build placeholder</p></body></html>' > dist/index.html
+          npm ci 2>&1
+          npm run build 2>&1
+          echo ""
+          echo "=== dist contents ==="
+          ls -la dist/
         working-directory: frontend
 
       - name: Build Go binary (Windows amd64)
