@@ -22,7 +22,7 @@ jobs:
           node-version: '18'
 
       - name: Install frontend dependencies
-        run: npm ci
+        run: npm install
         working-directory: frontend
 
       - name: Build frontend
